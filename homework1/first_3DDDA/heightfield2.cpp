@@ -71,6 +71,12 @@ Heightfield2::Heightfield2(const Transform *o2w, const Transform *w2o,
 			triangles[pos++] = tmp;
         }
     }
+	bounds = ObjectBound();
+	nVoxels[0] = nx-1;
+	nVoxels[1] = ny-1;
+	width = Vector(1.f / (nx-1), 1.f / (ny-1), 0);
+	Grid2D tmp = {nVoxels, bounds, width, Vector(nx-1, ny-1, 0)};
+	GRID2D = tmp;
 	// Custom R04922067 end
 }
 
@@ -163,7 +169,6 @@ bool Heightfield2::Intersect(const Ray &r, float *tHit, float *rayEpsilon,
     (*WorldToObject)(r, &ray);
 
 	// Start 3D DDA
-	BBox bounds = ObjectBound();
 
 	// Check ray against overall grid bounds
     float rayT;
@@ -172,28 +177,6 @@ bool Heightfield2::Intersect(const Ray &r, float *tHit, float *rayEpsilon,
 	else if (!bounds.IntersectP(ray, &rayT))
 		return false;
 	Point gridIntersect = ray(rayT);
-
-	// Extra additional line, different from grid.cpp
-	int nVoxels[2] = {nx-1, ny-1};
-	Vector width = Vector(1.f / (nx-1), 1.f / (ny-1), 0);
-	struct Grid2D {
-		int *nVoxels;
-		BBox bounds;
-		Vector width, invWidth;
-		// GridAccel Private Methods
-		int posToVoxel(const Point &P, int axis) const {
-			int v = Float2Int((P[axis] - bounds.pMin[axis]) *
-							  invWidth[axis]);
-			return Clamp(v, 0, nVoxels[axis]-1);
-		}
-		float voxelToPos(int p, int axis) const {
-			return bounds.pMin[axis] + p * width[axis];
-		}
-		inline int offset(int x, int y) const {
-			return y*nVoxels[0] + x;
-		}
-	};
-	Grid2D GRID2D = {nVoxels, bounds, width, Vector(nx-1, ny-1, 0)};
 
 	// Set up 2D DDA for ray
     float NextCrossingT[2], DeltaT[2];

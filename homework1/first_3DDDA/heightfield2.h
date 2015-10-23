@@ -53,6 +53,26 @@ struct mTriangle {
 	bool IntersectP(const Ray &ray, const Shape *belong) const;
 };
 
+// Grid2D Declarations
+struct Grid2D {
+	// Public Member
+	int *nVoxels;
+	BBox bounds;
+	Vector width, invWidth;
+	// Public Methods
+	int posToVoxel(const Point &P, int axis) const {
+		int v = Float2Int((P[axis] - bounds.pMin[axis]) *
+							invWidth[axis]);
+		return Clamp(v, 0, nVoxels[axis]-1);
+	}
+	float voxelToPos(int p, int axis) const {
+		return bounds.pMin[axis] + p * width[axis];
+	}
+	inline int offset(int x, int y) const {
+		return y*nVoxels[0] + x;
+	}
+};
+
 // Heightfield2 Declarations
 class Heightfield2 : public Shape {
 public:
@@ -74,6 +94,12 @@ private:
 	// custom implement R04922067 begin
 	bool triangleIntersectP(const Ray &ray, Point * triangle) const;
 	vector<mTriangle> triangles;
+	Grid2D GRID2D;
+	BBox bounds;
+	int nVoxels[2];
+	Vector width;
+	// int nVoxels[2] = {nx-1, ny-1};
+	// Vector width = Vector(1.f / (nx-1), 1.f / (ny-1), 0);
 	// custom implement R04922067 end;
 };
 
