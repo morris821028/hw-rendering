@@ -45,6 +45,10 @@ Heightfield2::Heightfield2(const Transform *o2w, const Transform *w2o,
     z = new float[nx*ny];
     memcpy(z, zs, nx*ny*sizeof(float));
 	// Custom R04922067 begin
+	bounds = ObjectBound();
+	nVoxels[0] = nx-1;
+	nVoxels[1] = ny-1;
+	width = Vector(1.f / (nx-1), 1.f / (ny-1), 0);
 	triangles = vector<mTriangle>(nx*ny*2);
 	int pos = 0;
 	for (int y = 0; y < ny-1; ++y) {
@@ -60,23 +64,19 @@ Heightfield2::Heightfield2(const Transform *o2w, const Transform *w2o,
 			p[1].x = tx[1], p[1].y = ty[0], p[1].z = tz[1]; // (1, 0)
 			p[2].x = tx[0], p[2].y = ty[1], p[2].z = tz[2]; // (0, 1)
 			p[3].x = tx[1], p[3].y = ty[1], p[3].z = tz[3]; // (1, 1)
-			p[0] = (* ObjectToWorld) (p[0]);
-			p[1] = (* ObjectToWorld) (p[1]);
-			p[2] = (* ObjectToWorld) (p[2]);
-			p[3] = (* ObjectToWorld) (p[3]);
 			mTriangle tmp;
+			tmp.dx = width[0], tmp.dy = width[1], tmp.bx = tx[0], tmp.by = ty[0];
 			tmp.p[0] = p[0], tmp.p[1] = p[1], tmp.p[2] = p[3];
 			triangles[pos++] = tmp;
 			tmp.p[0] = p[0], tmp.p[1] = p[3], tmp.p[2] = p[2];
 			triangles[pos++] = tmp;
         }
     }
-	bounds = ObjectBound();
-	nVoxels[0] = nx-1;
-	nVoxels[1] = ny-1;
-	width = Vector(1.f / (nx-1), 1.f / (ny-1), 0);
 	Grid2D tmp = {nVoxels, bounds, width, Vector(nx-1, ny-1, 0)};
 	GRID2D = tmp;
+
+	// Phong interpolation, computing normal for each point on the grid.
+	normals = new Normal[nx * ny];
 	// Custom R04922067 end
 }
 
@@ -207,9 +207,9 @@ bool Heightfield2::Intersect(const Ray &r, float *tHit, float *rayEpsilon,
     for (;;) {
         int o = GRID2D.offset(Pos[0], Pos[1]) * 2;
         
-        if (triangles[o|0].Intersect(r, tHit, rayEpsilon, dg, this))
+		if (triangles[o|0].Intersect(ray, tHit, rayEpsilon, dg, this, *ObjectToWorld))
             return true;
-		if (triangles[o|1].Intersect(r, tHit, rayEpsilon, dg, this))
+		if (triangles[o|1].Intersect(ray, tHit, rayEpsilon, dg, this, *ObjectToWorld))
             return true;
         // Advance to next voxel
 
@@ -226,8 +226,7 @@ bool Heightfield2::Intersect(const Ray &r, float *tHit, float *rayEpsilon,
 }
 // copy shapes/tianglemesh.cpp -> bool Triangle::Intersect(const Ray &ray, float *tHit, float *rayEpsilon, DifferentialGeometry *dg) const
 bool mTriangle::Intersect (const Ray &ray, float *tHit, float *rayEpsilon, 
-									  DifferentialGeometry *dg, const Shape *belong) const {
-	// const Point p1 = (*ObjectToWorld)(triangle[0]);
+									  DifferentialGeometry *dg, const Shape *belong, const Transform &objToWorld) const {
 	const Point p1 = p[0], p2 = p[1], p3 = p[2];
 	Vector e1 = p2 - p1;
     Vector e2 = p3 - p1;
@@ -277,18 +276,18 @@ bool mTriangle::Intersect (const Ray &ray, float *tHit, float *rayEpsilon,
     float b0 = 1 - b1 - b2;
     float tu = b0*p1.x + b1*p2.x + b2*p3.x;
     float tv = b0*p1.y + b1*p2.y + b2*p3.y;
-
-    // Fill in _DifferentialGeometry_ from triangle hit
-    *dg = DifferentialGeometry(ray(t), dpdu, dpdv,
-                               Normal(0,0,0), Normal(0,0,0),
+	Point tp = (ray(t));
+	tu = tp.x, tv = tp.y;
+    *dg = DifferentialGeometry((objToWorld) (ray(t)), (objToWorld) (dpdu), (objToWorld) (dpdv),
+                               (objToWorld) (Normal(0,0,0)), (objToWorld) (Normal(0,0,0)),
                                tu, tv, belong);
-	
 	*tHit = t;
     *rayEpsilon = 1e-3f * *tHit;
 	return true;
 }
 // copy shapes/tianglemesh.cpp -> bool Triangle::IntersectP(const Ray &ray) const
 bool mTriangle::IntersectP(const Ray &ray, const Shape *belong) const {
+	// Get triangle vertices in _p1_, _p2_, and _p3_
 	const Point p1 = p[0], p2 = p[1], p3 = p[2];
 	Vector e1 = p2 - p1;
     Vector e2 = p3 - p1;
@@ -360,9 +359,9 @@ bool Heightfield2::IntersectP(const Ray &r) const {
     for (;;) {
         int o = GRID2D.offset(Pos[0], Pos[1]) * 2;
         
-        if (triangles[o|0].IntersectP(r, this))
+        if (triangles[o|0].IntersectP(ray, this))
             return true;
-		if (triangles[o|1].IntersectP(r, this))
+		if (triangles[o|1].IntersectP(ray, this))
             return true;
         // Advance to next voxel
 
@@ -376,4 +375,31 @@ bool Heightfield2::IntersectP(const Ray &r) const {
         NextCrossingT[stepAxis] += DeltaT[stepAxis];
     }
 	return false;
+}
+
+void Heightfield2::GetShadingGeometry(const Transform &obj2world,
+        const DifferentialGeometry &dg, DifferentialGeometry *dgShading) const {
+	*dgShading = dg;
+	// Find hit point in the upper or lower triangle.
+	Point p1, p2, p3, p4;
+	Point dgp = (*WorldToObject)(dg.p);
+	float bx = fmod(dgp.x, width[0]), by = fmod(dgp.y, width[1]);
+	int x = Clamp(Float2Int(dgp.x * (nx-1)), 0, nx-1), 
+		y = Clamp(Float2Int(dgp.y * (ny-1)), 0, ny-1);
+	float uv[3][2];
+	p4 = dgp;
+	if (bx <= by) {
+		p1 = Point(x * width[0], y * width[1], z[x + nx * y]);				// (0, 0)
+		p2 = Point((x + 1) * width[0], y * width[1], z[(x + 1) + nx * y]);	// (1, 0)
+		p3 = Point((x + 1) * width[0], (y + 1) * width[1], z[(x + 1) + nx * (y + 1)]);	// (1, 1)
+	} else {
+		p1 = Point(x * width[0], y * width[1], z[x + nx * y]);				// (0, 0)
+		p2 = Point((x + 1) * width[0], (y + 1) * width[1], z[(x + 1) + nx * (y + 1)]);	// (1, 1)
+		p3 = Point(x * width[0], (y+1) * width[1], z[x + nx * (y + 1)]);	// (0, 1)
+	}
+	//printf("p1 %f %f %f\n", p1.x, p1.y, p1.z);
+	//printf("p2 %f %f %f\n", p2.x, p2.y, p2.z);
+	//printf("p3 %f %f %f\n", p3.x, p3.y, p3.z);
+	//printf("p4 %f %f %f\n", p4.x, p4.y, p4.z);
+	return ;
 }

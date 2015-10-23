@@ -46,10 +46,11 @@ struct mTriangle;
 struct mTriangle {
 	// Public Member
 	Point p[3];
+	float dx, dy, bx, by;
     // Public Methods
     mTriangle() { }
     bool Intersect(const Ray &ray, float *tHit, float *rayEpsilon, 
-									  DifferentialGeometry *dg, const Shape *belong) const;
+									  DifferentialGeometry *dg, const Shape *belong, const Transform &objToWorld) const;
 	bool IntersectP(const Ray &ray, const Shape *belong) const;
 };
 
@@ -85,6 +86,8 @@ public:
 	bool Intersect(const Ray &ray, float *tHit, float *rayEpsilon,
                    DifferentialGeometry *dg) const;
     bool IntersectP(const Ray &ray) const;
+	virtual void GetShadingGeometry(const Transform &obj2world,
+									const DifferentialGeometry &dg, DifferentialGeometry *dgShading) const;
 	// custom implement R04922067 end
     BBox ObjectBound() const;
 private:
@@ -98,8 +101,7 @@ private:
 	BBox bounds;
 	int nVoxels[2];
 	Vector width;
-	// int nVoxels[2] = {nx-1, ny-1};
-	// Vector width = Vector(1.f / (nx-1), 1.f / (ny-1), 0);
+	Normal *normals;
 	// custom implement R04922067 end;
 };
 
