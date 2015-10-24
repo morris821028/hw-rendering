@@ -102,7 +102,8 @@ private:
 	int nVoxels[2];
 	Vector width;
 	// Phong interpolation of normals across
-	vector<Normal> normals;
+	Normal *m_normals;
+	Normal Heightfield2::getGridNormal(int idxX,int idxY) const;
 	void initFieldNormals();
 	// custom implement R04922067 end;
 };

@@ -76,6 +76,7 @@ Heightfield2::Heightfield2(const Transform *o2w, const Transform *w2o,
 	GRID2D = tmp;
 
 	// Phong interpolation, computing normal for each point on the grid.
+	m_normals = new Normal[nx * ny];
 	initFieldNormals();
 	// Custom R04922067 end
 }
@@ -83,6 +84,7 @@ Heightfield2::Heightfield2(const Transform *o2w, const Transform *w2o,
 
 Heightfield2::~Heightfield2() {
     delete[] z;
+	delete[] m_normals;
 }
 
 
@@ -156,7 +158,6 @@ Heightfield2 *CreateHeightfield2Shape(const Transform *o2w, const Transform *w2o
     int nv = params.FindOneInt("nv", -1);
     int nitems;
     const float *Pz = params.FindFloat("Pz", &nitems);
-	printf("%d %d\n", nu, nv);
     Assert(nitems == nu*nv);
     Assert(nu != -1 && nv != -1 && Pz != NULL);
     return new Heightfield2(o2w, w2o, reverseOrientation, nu, nv, Pz);
@@ -228,6 +229,7 @@ bool Heightfield2::Intersect(const Ray &r, float *tHit, float *rayEpsilon,
 // copy shapes/tianglemesh.cpp -> bool Triangle::Intersect(const Ray &ray, float *tHit, float *rayEpsilon, DifferentialGeometry *dg) const
 bool mTriangle::Intersect (const Ray &ray, float *tHit, float *rayEpsilon, 
 									  DifferentialGeometry *dg, const Shape *belong, const Transform &objToWorld) const {
+	PBRT_RAY_TRIANGLE_INTERSECTIONP_TEST(const_cast<Ray *>(&ray), const_cast<Triangle *>(this));
 	const Point p1 = p[0], p2 = p[1], p3 = p[2];
 	Vector e1 = p2 - p1;
     Vector e2 = p3 - p1;
@@ -278,12 +280,13 @@ bool mTriangle::Intersect (const Ray &ray, float *tHit, float *rayEpsilon,
     float tu = b0*p1.x + b1*p2.x + b2*p3.x;
     float tv = b0*p1.y + b1*p2.y + b2*p3.y;
 	Point tp = (ray(t));
-	tu = tp.x, tv = tp.y; 
+	tu = tp.x, tv = tp.y;
     *dg = DifferentialGeometry((objToWorld) (ray(t)), (objToWorld) (dpdu), (objToWorld) (dpdv),
                                (objToWorld) (Normal(0,0,0)), (objToWorld) (Normal(0,0,0)),
                                tu, tv, belong);
 	*tHit = t;
     *rayEpsilon = 1e-3f * *tHit;
+	 PBRT_RAY_TRIANGLE_INTERSECTIONP_HIT(const_cast<Ray *>(&ray), t);
 	return true;
 }
 // copy shapes/tianglemesh.cpp -> bool Triangle::IntersectP(const Ray &ray) const
@@ -317,7 +320,7 @@ bool mTriangle::IntersectP(const Ray &ray, const Shape *belong) const {
 }
 
 bool Heightfield2::IntersectP(const Ray &r) const {
-    // Transform _Ray_ to object spacecd 
+    // Transform _Ray_ to object space
     Ray ray;
     (*WorldToObject)(r, &ray);
 
@@ -379,92 +382,66 @@ bool Heightfield2::IntersectP(const Ray &r) const {
 }
 
 // Phong interpolation of normals across, initFieldNormals & GetShadingGeometry
+
+Normal Heightfield2::getGridNormal(int i,int j) const {
+#define VERT(x,y) ((x)+(y)*nx)
+   Vector dx(1.f * width[0], 0, 0), dy(0, 1.f * width[1], 0);
+   if (i == nx-1) 
+		dx.z = z[VERT(i, j)] - z[VERT(i-1, j)];
+   else if (i == 0) 
+		dx.z = z[VERT(i+1, j)] - z[VERT(i, j)];
+   else 
+		dx.z = 0.5f * (z[VERT(i+1, j)] - z[VERT(i-1, j)]);
+   
+   if (j == ny-1) 
+		dy.z = z[VERT(i, j)] - z[VERT(i, j-1)];
+   else if (j == 0)
+		dy.z = z[VERT(i, j+1)] - z[VERT(i, j)];
+   else 
+		dy.z = 0.5f * (z[VERT(i, j+1)] - z[VERT(i, j-1)]);
+#undef VERT
+   return Normalize(Normal(Cross(dx, dy)));
+}
 void Heightfield2::initFieldNormals() {
-	// for each point, it will has 6 adjacency neighbor (triangulation)
-	normals.resize(nx * ny);
-	const int dx[6] = {1, 1, 0, -1, -1, 0};
-	const int dy[6] = {0, 1, 1, 0, -1, -1};
-
-	for (int y = 0; y < ny; y++) {
-		for (int x = 0; x < nx; x++) {
-			vector<Point> adj;
-			Point o = Point(x * width[0], y * width[1], z[x + nx * y]);
-			Normal normal(0, 0, 0);
-			// Find all adjacency neighbor
-			for (int i = 0; i < 6; i++) {
-				int tx, ty;
-				tx = x + dx[i], ty = y + dy[i];
-				if (tx < 0 || ty < 0 || tx >= nx || ty >= ny)
-					continue;
-				adj.push_back(Point(tx * width[0], ty * width[1], z[tx + nx * ty]));
-			}
-
-			// compute cross
-			int adjn = adj.size();
-			for (int i = 0; i < adjn; i++) {
-				normal += Normalize(Normal(Cross(adj[i] - o, adj[(i+1)%adjn] - o)));
-			}
-			normals[x + nx * y] = normal / adjn;
-			
+	for (int j = 0; j < ny; ++j) {
+		for (int i = 0; i < nx; ++i) {
+			m_normals[i + nx * j] = getGridNormal(i, j);
 		}
 	}
 }
+
 void Heightfield2::GetShadingGeometry(const Transform &obj2world,
         const DifferentialGeometry &dg, DifferentialGeometry *dgShading) const {
-	*dgShading = dg;
-	// Find hit point in the upper or lower triangle.
-	Point p1, p2, p3, p4;
-	Point dgp = (*WorldToObject)(dg.p);
-	float bx = fmod(dgp.x, width[0]), by = fmod(dgp.y, width[1]);
-	int x = Clamp(Float2Int(dg.u * (nx-1)), 0, nx-1), 
-		y = Clamp(Float2Int(dg.v * (ny-1)), 0, ny-1);
-	int type = 0;
-	float uv[3][2];
-	Normal normal[3];
-	p4 = dgp;
-	if (bx <= by) {
-		p1 = Point(x * width[0], y * width[1], z[x + nx * y]);				// (0, 0)
-		p2 = Point((x + 1) * width[0], y * width[1], z[(x + 1) + nx * y]);	// (1, 0)
-		p3 = Point((x + 1) * width[0], (y + 1) * width[1], z[(x + 1) + nx * (y + 1)]);	// (1, 1)
-		normal[0] = normals[x + nx * y];
-		normal[1] = normals[(x + 1) + nx * y];
-		normal[2] = normals[(x + 1) + nx * (y + 1)];
-		type = 0;
-	} else {
-		p1 = Point(x * width[0], y * width[1], z[x + nx * y]);				// (0, 0)
-		p2 = Point(x * width[0], (y+1) * width[1], z[x + nx * (y + 1)]);	// (0, 1)
-		p3 = Point((x + 1) * width[0], (y + 1) * width[1], z[(x + 1) + nx * (y + 1)]);	// (1, 1)
-		normal[0] = normals[x + nx * y];
-		normal[1] = normals[x + nx * (y + 1)];
-		normal[2] = normals[(x + 1) + nx * (y + 1)];
-		type = 1;
-	}
+	int x = Clamp(Float2Int(dg.u * (nx-1)), 0, nx - 1), 
+		y = Clamp(Float2Int(dg.v * (ny-1)), 0, ny - 1);
 
-	// Compute normal with Phong interpolation, 2D
-	Point a = Point(p2.x, p2.y, 0), b = Point(p3.x, p3.y, 0), c = Point(dgp.x, dgp.y, 0);
-	float len_ab = (a - b).Length(), len_ac = (a - c).Length();
-	float invlen_ab = 1.f / len_ab, invlen_ac = 1.f / len_ac;
-	Normal n1, n2, n3;
+	int type = dg.v * (ny - 1) - y >= dg.u * (nx - 1) - x;	// upper or lower triangle
 
-	if (type == 0) {
-		float t1, t2;
-		t1 = bx / width[0], t2 = 1.f - t1;
-		n1 = (t1 * normal[0]) + (t2 * normal[1]);
-		n2 = (t1 * normal[0]) + (t2 * normal[2]);
-		t1 = by / width[1], t2 = 1.f - t1;
-		n3 = (t1 * n1) + (t2 * n2);
-	} else {
-		float t1, t2;
-		t1 = by / width[1], t2 = 1.f - t1;
-		n1 = (t1 * normal[0]) + (t2 * normal[1]);
-		n2 = (t1 * normal[0]) + (t2 * normal[2]);
-		t1 = bx / width[0], t2 = 1.f - t1;
-		n3 = (t1 * n1) + (t2 * n2);
-	}
-	n3 = (* ObjectToWorld) (Normalize(n3));
+	Point p1 = Point(x * width[0], y * width[1], z[x + nx * y]),
+		  p2 = Point((x + 1) * width[0], (y + 1) * width[1], z[(x + 1) + nx * (y + 1)]),
+		  p3 = Point(x * width[0], (y + 1) * width[1], z[x + nx * (y + 1)]),
+		  p4 = Point(dg.u, p1.y + (dg.u - p1.x), 0);	// on diagonal line
+
+	if (type == 0)
+		p3 = Point((x + 1) * width[0], y * width[1], z[(x + 1) + nx * y]);
+			
+	// Compute the normal at the hit point
+	int q = type == 0 ? (x + 1) + nx * (y) : (x) + nx * (y + 1);
+	Normal normals[3] = {m_normals[x + nx * y], m_normals[(x + 1) + nx * (y + 1)], m_normals[q]};	// normal of p1, p2, p3
+
+	// Compute normal with Phong interpolation
+	Point a = Point(p1.x, p1.y, 0), 
+		  b = Point(p2.x, p2.y, 0), 
+		  c = Point(p4.x, p4.y, 0);
+	Normal n1 = ((a - c).Length() * normals[1] + (b - c).Length() * normals[0]),	// diagonal normal
+		   n2 = type == 0 ? (fabs(dg.u - p3.x) * normals[0] + fabs(p1.x - dg.u) * normals[2]) : 
+						    (fabs(dg.v - p3.y) * normals[0] + fabs(p1.y - dg.v) * normals[2]) ;
+	float d1 = type == 0 ? fabs(p4.y - dg.v) : fabs(p4.x - dg.u),
+		  d2 = type == 0 ? fabs(p1.y - dg.v) : fabs(p1.x - dg.u);
+	Normal hitNormal = (*ObjectToWorld) (Normalize(d2 * Normalize(n1) + d1 * Normalize(n2)));
 
 	// Use _n_ and _s_ to compute shading tangents for triangle, _ss_ and _ts_
-    Normal ns = n3;
+    Normal ns = hitNormal;
     Vector ss, ts;
     ss = Normalize(dg.dpdu);
     
@@ -478,12 +455,11 @@ void Heightfield2::GetShadingGeometry(const Transform &obj2world,
 
 	// Compute deltas for triangle partial derivatives of normal
 	Normal dndu, dndv;
-    float du1 = p1.x - p3.x;
-    float du2 = p2.x - p3.x;
-    float dv1 = p1.y - p3.y;
-    float dv2 = p1.y - p3.y;
-    Normal dn1 = normal[0] - normal[2];
-    Normal dn2 = normal[1] - normal[2];
+    float du1 = p2.x - p1.x;
+    float du2 = p3.x - p1.x;
+    float dv1 = p2.y - p1.y;
+    float dv2 = p3.y - p1.y;
+	Normal dn1 = normals[1] - normals[0], dn2 = normals[2] - normals[0];
     float determinant = du1 * dv2 - dv1 * du2;
     if (determinant == 0.f)
         dndu = dndv = Normal(0,0,0);
@@ -493,10 +469,9 @@ void Heightfield2::GetShadingGeometry(const Transform &obj2world,
         dndv = (-du2 * dn1 + du1 * dn2) * invdet;
     }
 
-
 	*dgShading = DifferentialGeometry(dg.p, ss, ts,
 				(*ObjectToWorld)(dndu), (*ObjectToWorld)(dndv), dg.u, dg.v, dg.shape);
-			dgShading->dudx = dg.dudx;  dgShading->dvdx = dg.dvdx;
-			dgShading->dudy = dg.dudy;  dgShading->dvdy = dg.dvdy;
-			dgShading->dpdx = dg.dpdx;  dgShading->dpdy = dg.dpdy;
+	dgShading->dudx = dg.dudx;  dgShading->dvdx = dg.dvdx;
+	dgShading->dudy = dg.dudy;  dgShading->dvdy = dg.dvdy;
+	dgShading->dpdx = dg.dpdx;  dgShading->dpdy = dg.dpdy;
 }
