@@ -415,7 +415,7 @@ void Heightfield2::GetShadingGeometry(const Transform &obj2world,
 	int x = Clamp(Float2Int(dg.u * (nx-1)), 0, nx - 1), 
 		y = Clamp(Float2Int(dg.v * (ny-1)), 0, ny - 1);
 
-	int type = dg.v * (ny - 1) - y >= dg.u * (nx - 1) - x;	// upper or lower triangle
+	int type = dg.u - x * width[0] <= dg.v - y * width[1];	// upper or lower triangle
 
 	Point p1 = Point(x * width[0], y * width[1], z[x + nx * y]),
 		  p2 = Point((x + 1) * width[0], (y + 1) * width[1], z[(x + 1) + nx * (y + 1)]),
@@ -435,9 +435,9 @@ void Heightfield2::GetShadingGeometry(const Transform &obj2world,
 		  c = Point(p4.x, p4.y, 0);
 	Normal n1 = ((a - c).Length() * normals[1] + (b - c).Length() * normals[0]),	// diagonal normal
 		   n2 = type == 0 ? (fabs(dg.u - p3.x) * normals[0] + fabs(p1.x - dg.u) * normals[2]) : 
-						    (fabs(dg.v - p3.y) * normals[0] + fabs(p1.y - dg.v) * normals[2]) ;
-	float d1 = type == 0 ? fabs(p4.y - dg.v) : fabs(p4.x - dg.u),
-		  d2 = type == 0 ? fabs(p1.y - dg.v) : fabs(p1.x - dg.u);
+						    (fabs(dg.u - p2.x) * normals[2] + fabs(p3.x - dg.u) * normals[1]) ;
+	float d1 = type == 0 ? fabs(p4.y - dg.v) : fabs(p4.y - dg.v),
+		  d2 = type == 0 ? fabs(p1.y - dg.v) : fabs(p2.y - dg.v);
 	Normal hitNormal = (*ObjectToWorld) (Normalize(d2 * Normalize(n1) + d1 * Normalize(n2)));
 
 	// Use _n_ and _s_ to compute shading tangents for triangle, _ss_ and _ts_
