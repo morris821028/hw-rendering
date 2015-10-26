@@ -26,7 +26,6 @@
 * RAM 4.00 GB
 * Intel(R) HD Graphics (內顯)
 
-
 ### Calcuate Time ###
 
 ```
