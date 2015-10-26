@@ -19,6 +19,16 @@
 
 ## 實驗結果 ##
 
+### Machine ###
+
+* Windows 7 64-bits
+* Intel(R) Core(TM) i5-3470 CPU @ 3.20GHz 3.20GHz
+* RAM 4.00 GB
+* Intel(R) HD Graphics (內顯)
+
+
+### Calcuate Time ###
+
 ```
 $ time ./pbrt.exe heightfields_input/hftest.pbrt
 ```
