@@ -18,17 +18,37 @@ CSIE5098 - HW1
 <p>Code emailed: <font color="#008000">?? Apr 2005</font></p>
 
 <h3>Description of implementation approach and comments</h3>
-<p ALIGN="LEFT"><font color="#008000">Duis autem vel eum iriure dolor in
-hendrerit in vulputate velit esse molestie consequat, vel illum dolore eu
-feugiat nulla facilisis at vero eros et accumsan et iusto odio dignissim qui
-blandit praesent luptatum zzril delenit augue duis dolore te feugait nulla
-facilisi [sit n. d.]. Lorem ipsum dolor sit amet, consectetuer adipiscing elit,
-sed diam nonummy nibh euismod tincidunt ut laoreet dolore magna aliquam erat
-volutpat. aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo
-dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est
-Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing
-elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam
-erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum.&nbsp;</font></p>
+
+<p>實作採用 3D-DDA 算法降至 2D Grid 上進行交點測試。Uniform Grid 將會切割成 \(N \times M\) 的格子，在 2D 平面上，先找到 ray 進入的格子點，接著使用增量算法找到下一個格子，算法只測試投影到 x-y 平面上時，在 ray 鄰近的格子點做交點測試，複雜度期望速度 \(O(\sqrt{N \times M})\)。</p>
+
+<p>原本預設的 Height Field 拆成好幾個 Triangle，做法類似 Triangle Mesh，接著將這幾個 Triangle 利用 BVH 或者是 KD-tree 的架構進行，原本的做法會考慮三個維度，但使用投影的方式，只考慮兩個維度下的情況，接著再針對有相交的格子測試，最後才進行 3D Triangle 是否與 ray 相交。</p>
+
+<p>實作 Height Field 時，考慮快取和再計算之間的好壞，則有兩種方法</p>
+
+<ol>
+<li>預先將預處理每個 3D Triangle 座標 (消耗空間)</li>
+<li>需要時，再創建 Triangle 出來測試 (消耗時間)</li>
+</ol>
+
+<p>由於要找 ray 碰度到 uniform grid 的第一個格子，需要預處理 Height Field Bound Box，計算 Bound Box 需要 \(O(N \times M)\)，若不預處理會造成 3D-DDA 與暴力法 \(O(N \times M)\) 無異。</p>
+
+<p>若對 Height Field 進行 2D-DDA 好處在於一定是數個三角形構成，因此不用等到 <code>ray.maxT</code> 小於下一格交點的 <code>NextCrossingT[stepAxis]</code> 才能結束，一有交點就可以離開，因為每一格之間都有獨立性。</p>
+
+
+<img border="0" src="images/hftest_1.png" style="max-width: 45%">
+
+<img border="0" src="images/hftest_2.png" style="max-width: 45%">
+
+
+<img border="0" src="images/phong_interpolation_1.png" style="max-width: 80%">
+
+
+
+
+<img border="0" src="images/phong_interpolation_2.png" style="max-width: 80%">
+
+
+
 
 
 
@@ -41,8 +61,8 @@ erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum
       interpolation)</font>
       <p><font color="#008000">Timings:</font>
       <ul>
-        <li><font color="#008000">Original: 10 seconds</font></li>
-        <li><font color="#008000">My implementation: 21 seconds (210% original)</font></li>
+        <li><font color="#008000">Original: 0.125 seconds</font></li>
+        <li><font color="#008000">My implementation: 0.130 seconds (210% original)</font></li>
       </ul>
     </td>
     <td width="50%"><img border="0" src="images/3ddda/landsea-0_2.jpg" width="400" height="400">
@@ -50,8 +70,8 @@ erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum
       interpolation)</font>
       <p><font color="#008000">Timings:</font>
       <ul>
-        <li><font color="#008000">Original: 10 seconds</font></li>
-        <li><font color="#008000">My implementation: 21 seconds (210% original)</font></li>
+        <li><font color="#008000">Original: 0.815 seconds</font></li>
+        <li><font color="#008000">My implementation: 1.050 seconds (210% original)</font></li>
       </ul>
     </td>
   </tr>
@@ -65,8 +85,8 @@ erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum
       interpolation)</font>
       <p><font color="#008000">Timings:</font>
       <ul>
-        <li><font color="#008000">Original: 10 seconds</font></li>
-        <li><font color="#008000">My implementation: 21 seconds (210% original)</font></li>
+        <li><font color="#008000">Original: 0.850 seconds</font></li>
+        <li><font color="#008000">My implementation: 1.020 seconds (210% original)</font></li>
       </ul>
     </td>
     <td width="50%"><img border="0" src="images/3ddda/landsea-2_2.jpg" width="400" height="400">
@@ -74,8 +94,8 @@ erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum
       interpolation)</font>
       <p><font color="#008000">Timings:</font>
       <ul>
-        <li><font color="#008000">Original: 10 seconds</font></li>
-        <li><font color="#008000">My implementation: 21 seconds (210% original)</font></li>
+        <li><font color="#008000">Original: 0.780 seconds</font></li>
+        <li><font color="#008000">My implementation: 0.870 seconds (210% original)</font></li>
       </ul>
     </td>
   </tr>
@@ -89,8 +109,8 @@ erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum
       interpolation)</font>
       <p><font color="#008000">Timings:</font>
       <ul>
-        <li><font color="#008000">Original: 10 seconds</font></li>
-        <li><font color="#008000">My implementation: 21 seconds (210% original)</font></li>
+        <li><font color="#008000">Original: 0.450 seconds</font></li>
+        <li><font color="#008000">My implementation: 0.520 seconds (210% original)</font></li>
       </ul>
     </td>
     <td width="50%">
@@ -100,17 +120,19 @@ erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum
     <td width="50%"></td>
     <td width="50%"></td>
   </tr>
+  <tr>
+    <td width="100%" colspan="2">
+     <img border="0" src="images/3ddda/landsea-big_2.jpg" width="600" height="600">
+      <p><font color="#008000"><tt>landsea-big.pbrt </tt> (without Phong
+            interpolation)</font></p>
+            <p><font color="#008000">Timings:</font>
+      <ul>
+        <li><font color="#008000">Original: 6.200 seconds</font></li>
+        <li><font color="#008000">My implementation: 2.200 seconds (210% original)</font></li>
+      </ul>
+    </td>
+  </tr>
 </table>
-<p>&nbsp;</p>
-<p>&nbsp;</p>
-<p><img border="0" src="images/3ddda/landsea-big_2.jpg" width="600" height="600"></p>
-<p><font color="#008000"><tt>landsea-big.pbrt </tt> (without Phong
-      interpolation)</font></p>
-      <p><font color="#008000">Timings:</font>
-<ul>
-  <li><font color="#008000">Original: 10 seconds</font></li>
-  <li><font color="#008000">My implementation: 21 seconds (210% original)</font></li>
-</ul>
 <p>&nbsp;</p>
 <p>&nbsp;</p>
 
@@ -123,8 +145,7 @@ erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum
       interpolation)</font>
       <p><font color="#008000">Timings:</font>
       <ul>
-        <li><font color="#008000">Original: 10 seconds</font></li>
-        <li><font color="#008000">My implementation: 21 seconds (210% original)</font></li>
+        <li><font color="#008000">My implementation: 0.135 seconds</font></li>
       </ul>
     </td>
     <td width="50%"><img border="0" src="images/phong/landsea-0_2.jpg" width="400" height="400">
@@ -132,8 +153,7 @@ erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum
       interpolation)</font>
       <p><font color="#008000">Timings:</font>
       <ul>
-        <li><font color="#008000">Original: 10 seconds</font></li>
-        <li><font color="#008000">My implementation: 21 seconds (210% original)</font></li>
+        <li><font color="#008000">My implementation: 1.100 seconds</font></li>
       </ul>
     </td>
   </tr>
@@ -147,8 +167,7 @@ erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum
       interpolation)</font>
       <p><font color="#008000">Timings:</font>
       <ul>
-        <li><font color="#008000">Original: 10 seconds</font></li>
-        <li><font color="#008000">My implementation: 21 seconds (210% original)</font></li>
+        <li><font color="#008000">My implementation: 1.050 seconds</font></li>
       </ul>
     </td>
     <td width="50%"><img border="0" src="images/phong/landsea-2_2.jpg" width="400" height="400">
@@ -156,8 +175,7 @@ erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum
       interpolation)</font>
       <p><font color="#008000">Timings:</font>
       <ul>
-        <li><font color="#008000">Original: 10 seconds</font></li>
-        <li><font color="#008000">My implementation: 21 seconds (210% original)</font></li>
+        <li><font color="#008000">My implementation: 0.900 seconds</font></li>
       </ul>
     </td>
   </tr>
@@ -171,8 +189,7 @@ erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum
       interpolation)</font>
       <p><font color="#008000">Timings:</font>
       <ul>
-        <li><font color="#008000">Original: 10 seconds</font></li>
-        <li><font color="#008000">My implementation: 21 seconds (210% original)</font></li>
+        <li><font color="#008000">My implementation: 0.530 seconds</font></li>
       </ul>
     </td>
     <td width="50%">
@@ -182,20 +199,34 @@ erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum
     <td width="50%"></td>
     <td width="50%"></td>
   </tr>
+  <tr>
+    <td width="100%" colspan="2">
+     <img border="0" src="images/phong/landsea-big_2.jpg" width="600" height="600">
+    <p><font color="#008000"><tt>landsea-big.pbrt </tt> (with Phong interpolation)</font></p>
+          <p><font color="#008000">Timings:</font>
+    <ul>
+      <li><font color="#008000">My implementation: 2.300 seconds</font></li>
+    </ul>
+    </td>
+  </tr>
 </table>
 <p>&nbsp;</p>
 <p>&nbsp;</p>
-<p><img border="0" src="images/phong/landsea-big_2.jpg" width="600" height="600"></p>
-<p><font color="#008000"><tt>landsea-big.pbrt </tt> (with Phong
-      interpolation)</font></p>
-      <p><font color="#008000">Timings:</font>
-<ul>
-  <li><font color="#008000">Original: 10 seconds</font></li>
-  <li><font color="#008000">My implementation: 21 seconds (210% original)</font></li>
-</ul>
-<p>&nbsp;</p>
-<p>&nbsp;</p>
 
+
+<script type="text/javascript">
+!function(){"undefined"!=typeof self&&self.Prism&&self.document&&Prism.hooks.add("complete",function(e){if(e.code){var t=e.element.parentNode,s=/\s*\bline-numbers\b\s*/;if(t&&/pre/i.test(t.nodeName)&&(s.test(t.className)||s.test(e.element.className))&&!e.element.querySelector(".line-numbers-rows")){s.test(e.element.className)&&(e.element.className=e.element.className.replace(s,"")),s.test(t.className)||(t.className+=" line-numbers");var n,a=e.code.match(/\n(?!$)/g),l=a?a.length+1:1,m=new Array(l+1);m=m.join("<span></span>"),n=document.createElement("span"),n.className="line-numbers-rows",n.innerHTML=m,t.hasAttribute("data-start")&&(t.style.counterReset="linenumber "+(parseInt(t.getAttribute("data-start"),10)-1)),e.element.appendChild(n)}}})}();
+</script>
+<script type="text/x-mathjax-config">
+if (typeof MathJaxListener !== 'undefined') {
+  MathJax.Hub.Register.StartupHook('End', function () {
+    MathJaxListener.invokeCallbackForKey_('End');
+  });
+}
+</script>
+<script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 
 </body>
+
+
 </html>
