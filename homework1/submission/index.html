@@ -13,15 +13,24 @@ CSIE5098 - HW1
 <p>CSIE5098 - Digital Image Synthesis</p>
 
 <p><font color="#008000">Shiang-Yun Yang 楊翔雲</font></p>
-<p>Date submitted: <font color="#008000">?? Apr 2005</font></p>
+<p>Date submitted: <font color="#008000">28 Oct 2015</font></p>
 
-<p>Code emailed: <font color="#008000">?? Apr 2005</font></p>
+<p>Code emailed: <font color="#008000">28 Oct 2015</font></p>
 
 <h3>Description of implementation approach and comments</h3>
 
-<p>實作採用 3D-DDA 算法降至 2D Grid 上進行交點測試。Uniform Grid 將會切割成 \(N \times M\) 的格子，在 2D 平面上，先找到 ray 進入的格子點，接著使用增量算法找到下一個格子，算法只測試投影到 x-y 平面上時，在 ray 鄰近的格子點做交點測試，複雜度期望速度 \(O(\sqrt{N \times M})\)。</p>
+<ul>
+<li>Windows 7 64-bits</li>
+<li>Comipler &amp; IDE: Microsoft Visual Studio 2012</li>
+<li>Image View Software: IrfanView</li>
+<li>Intel(R) Core(TM) i5-3470 CPU @ 3.20GHz 3.20GHz</li>
+<li>Intel(R) HD Graphics </li>
+<li>RAM 4.00 GB</li>
+</ul>
 
-<p>原本預設的 Height Field 拆成好幾個 Triangle，做法類似 Triangle Mesh，接著將這幾個 Triangle 利用 BVH 或者是 KD-tree 的架構進行，原本的做法會考慮三個維度，但使用投影的方式，只考慮兩個維度下的情況，接著再針對有相交的格子測試，最後才進行 3D Triangle 是否與 ray 相交。</p>
+<p>實作採用 3D-DDA 算法降至 2D Grid 上進行交點測試。Uniform Grid 將會切割成 \(N \times M\) 的格子，在 2D 平面上，先找到 ray 進入的格子點，接著使用增量算法找到下一個格子，算法只測試投影到 x-y 平面上時，在 ray 鄰近的格子點做交點測試，時間複雜度 \(O(\sqrt{N \times M})\)，與預設的其他算法所需要的 traversal 複雜度差不多。</p>
+
+<p>原本預設的 Height Field 拆成好幾個 Triangle，做法類似 Triangle Mesh，接著將這幾個 Triangle 利用 BVH 或者是 KD-tree 的架構進行，原本的做法會考慮三個維度，使用投影的方式只考慮兩個維度下的情況，接著再針對有相交的格子測試，最後才進行 3D Triangle 是否與 ray 相交。</p>
 
 <p>實作 Height Field 時，考慮快取和再計算之間的好壞，則有兩種方法</p>
 
@@ -32,20 +41,81 @@ CSIE5098 - HW1
 
 <p>由於要找 ray 碰度到 uniform grid 的第一個格子，需要預處理 Height Field Bound Box，計算 Bound Box 需要 \(O(N \times M)\)，若不預處理會造成 3D-DDA 與暴力法 \(O(N \times M)\) 無異。</p>
 
-<p>若對 Height Field 進行 2D-DDA 好處在於一定是數個三角形構成，因此不用等到 <code>ray.maxT</code> 小於下一格交點的 <code>NextCrossingT[stepAxis]</code> 才能結束，一有交點就可以離開，因為每一格之間都有獨立性。</p>
+<p>若對 Height Field 進行 2D-DDA 好處在於一定是數個三角形構成，因此不用等到 <code>ray.maxT</code> 小於下一格交點的 <code>NextCrossingT[stepAxis]</code> 才能結束，一與三角形有交點就可以離開，因為每一格之間都有獨立性。</p>
 
+<h4 id="toc_2">實作與測試細節</h4>
+
+<h4 id="toc_3">測試環境</h4>
+
+<p>一開始為了熟悉 pbrt 架構環境只實作求出交點的函數，</p>
+
+<pre class="line-numbers"><code class="language-cpp">bool Heightfield2::Intersect(const Ray &amp;r, float *tHit, float *rayEpsilon,
+        DifferentialGeometry *dg) const {
+    // 3D DDA
+}</code></pre>
+
+<p>而直接忽略單純詢問交點是否存在，這會導致畫面一片黑，因為每打到一個交點會嘗試從物體表面的交點連到點光源。若下述函數恆真，則不存在光源到交點的路徑，因此產出來的圖片是一片黑。</p>
+
+<pre class="line-numbers"><code class="language-cpp">bool Heightfield2::IntersectP(const Ray &amp;r) const {
+    return true;
+}</code></pre>
+
+<h4 id="toc_4">紋理模糊</h4>
+
+<p>找出紋理的兩個參數 \((u, v)\) 時，從 <code>trianglemesh.cpp</code> 複製過來的 <code>class Triangle</code> 其 <code>bool Triangle::Intersect()</code> 函數得到的 \(u, v\) 都是相對於三角形的 \(0 \le u, v \le 1\) (直接 rendering 會看起來很多小格子點)，因此得到相對的 \(u, v\) 和交點 \(p_{hit}\) (Object coordinate)，則把 \(p_{hit}\) 再次投影到 x-y 平面上，由於 height field 在 x-y 平面上長寬都是 1，投影到平面後得到 \(p_{projection}\)，對於整個 height field \(u = p_{projection}.x, \; v = p_{projection}.y\)。</p>
+
+<blockquote>
+<p>若測試 texture.pbrt 時，發生過模糊情況，其主要原因在於過多次座標轉換，如 <code>Object -&gt; World -&gt; Object -&gt; World</code>，求出來的 \(u, v\) 誤差就會放大。</p>
+</blockquote>
+
+<p>將 height field 存成好幾個 triangle 可以像 <code>class TriangleMesh</code> 利用 <code>index</code> 標籤來壓縮記憶體，但實作為方便仍然每一個三角形都有實體的 <code>Point</code>，儲存三角形每一個點座標採用 object coordinate，先把 \(ray\) 從 <code>WorldToObject</code> 得到 \(ray&#39;\)，得到的交點 \(p_{hit}\) 再進行 <code>ObjectToWorld</code>，如此一來模糊情況就會消失。</p>
+
+<h4 id="toc_5">Phong 圓滑化</h4>
+
+<p>Phong interpolation 方法在三角形上面操作時，需要得知三個頂點的法向量，給予 height field 的資訊，並不曉得每一個頂點的法向量為何。得到每一個頂點的法向量，採用預先處理所有頂點的法向量並儲存起來，因為不斷地正規化是很耗時間的 (<code>float sqrt(float x)</code> 儘管採用 fast inverse square root 算法，也要極力避免多餘的運算)。</p>
+
+<p>再計算頂點法向量時，根據影像處理中常用的一次差分 (differentiation) 遮罩</p>
 
 <img border="0" src="images/hftest_1.png" style="max-width: 45%">
-
 <img border="0" src="images/hftest_2.png" style="max-width: 45%">
+<span class="caption">Normal</span>
 
+<h5 id="toc_6">Case 1 邊緣</h5>
 
-<img border="0" src="images/phong_interpolation_1.png" style="max-width: 80%">
+<p>\[N_x = \begin{bmatrix}
+0 &amp; 0 &amp; 0 \\
+-1 &amp; 1 &amp; 0 \\
+0 &amp; 0 &amp; 0 \\
+\end{bmatrix}, \;
+N_y = \begin{bmatrix}
+0 &amp; 0 &amp; 0 \\
+0 &amp; 1 &amp; 0 \\
+0 &amp; -1 &amp; 0 \\
+\end{bmatrix}
+\]</p>
 
+<h5 id="toc_7">Case 2 非邊緣</h5>
 
+<p>\[N_x = \begin{bmatrix}
+0 &amp; 0 &amp; 0 \\
+-1 &amp; 0 &amp; 1 \\
+0 &amp; 0 &amp; 0 \\
+\end{bmatrix}, \;
+N_y = \begin{bmatrix}
+0 &amp; 1 &amp; 0 \\
+0 &amp; 0 &amp; 0 \\
+0 &amp; -1 &amp; 0 \\
+\end{bmatrix}
+\]</p>
 
+<p>上圖矩陣的中心座標為 \((x, y)\)，將相鄰座標的高度值 \(z\) 相減得到兩個方向的向量 \(N_x, \; N_y\)，外積得到座標 \((x, y)\) 的法向量 \(N_{x, y} = \mathrm{Cross}(N_x, N_y)\)。</p>
 
-<img border="0" src="images/phong_interpolation_2.png" style="max-width: 80%">
+<p>從另一個角度來看，將 height field 三角化後，每一個頂點原則上有 6 個鄰居，可以對每一個鄰居進行差分，接著順時針或者逆時針將兩兩相臨的向量外積，得到 6 個法向量平均後得到 \(N_{x, y}\)，這做法看起來比上述的差分來得穩定，但初始化消耗的時間會比較長，且撰寫的外積順序不對容易造成零向量的正規化錯誤。</p>
+
+<img border="0" src="images/phong_interpolation_1.png" style="max-width: 45%">
+
+<img border="0" src="images/phong_interpolation_2.png" style="max-width: 45%">
+<span class="caption">phong interpolation</span>
 
 
 
@@ -62,7 +132,7 @@ CSIE5098 - HW1
       <p><font color="#008000">Timings:</font>
       <ul>
         <li><font color="#008000">Original: 0.125 seconds</font></li>
-        <li><font color="#008000">My implementation: 0.130 seconds (210% original)</font></li>
+        <li><font color="#008000">My implementation: 0.130 seconds (104% original)</font></li>
       </ul>
     </td>
     <td width="50%"><img border="0" src="images/3ddda/landsea-0_2.jpg" width="400" height="400">
@@ -71,7 +141,7 @@ CSIE5098 - HW1
       <p><font color="#008000">Timings:</font>
       <ul>
         <li><font color="#008000">Original: 0.815 seconds</font></li>
-        <li><font color="#008000">My implementation: 1.050 seconds (210% original)</font></li>
+        <li><font color="#008000">My implementation: 1.050 seconds (128% original)</font></li>
       </ul>
     </td>
   </tr>
@@ -86,7 +156,7 @@ CSIE5098 - HW1
       <p><font color="#008000">Timings:</font>
       <ul>
         <li><font color="#008000">Original: 0.850 seconds</font></li>
-        <li><font color="#008000">My implementation: 1.020 seconds (210% original)</font></li>
+        <li><font color="#008000">My implementation: 1.020 seconds (120% original)</font></li>
       </ul>
     </td>
     <td width="50%"><img border="0" src="images/3ddda/landsea-2_2.jpg" width="400" height="400">
@@ -95,7 +165,7 @@ CSIE5098 - HW1
       <p><font color="#008000">Timings:</font>
       <ul>
         <li><font color="#008000">Original: 0.780 seconds</font></li>
-        <li><font color="#008000">My implementation: 0.870 seconds (210% original)</font></li>
+        <li><font color="#008000">My implementation: 0.870 seconds (115% original)</font></li>
       </ul>
     </td>
   </tr>
@@ -110,7 +180,7 @@ CSIE5098 - HW1
       <p><font color="#008000">Timings:</font>
       <ul>
         <li><font color="#008000">Original: 0.450 seconds</font></li>
-        <li><font color="#008000">My implementation: 0.520 seconds (210% original)</font></li>
+        <li><font color="#008000">My implementation: 0.520 seconds (120% original)</font></li>
       </ul>
     </td>
     <td width="50%">
@@ -128,7 +198,7 @@ CSIE5098 - HW1
             <p><font color="#008000">Timings:</font>
       <ul>
         <li><font color="#008000">Original: 6.200 seconds</font></li>
-        <li><font color="#008000">My implementation: 2.200 seconds (210% original)</font></li>
+        <li><font color="#008000">My implementation: 2.200 seconds (35% original)</font></li>
       </ul>
     </td>
   </tr>
