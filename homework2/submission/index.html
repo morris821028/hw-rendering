@@ -4,6 +4,7 @@
 CSIE5098 - HW2
 </title>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
     <link rel="stylesheet" type="text/css" href="simple.css">
 </head>
 <BODY TEXT="#000000" BGCOLOR="#FFFFFF" LINK="#0000EE" VLINK="#551A8B" ALINK="#FF0000">
@@ -17,7 +18,8 @@ CSIE5098 - HW2
 
 <p>Code emailed: <font color="#008000">20 Nov 2015</font></p>
 
-<h3>Description of implementation approach and comments</h3>
+
+<h3 id="toc_1">Description of implementation approach and comments</h3>
 
 <ul>
 <li>Windows 7 64-bits</li>
@@ -28,8 +30,93 @@ CSIE5098 - HW2
 <li>RAM 4.00 GB</li>
 </ul>
 
+<h3 id="toc_2">Ray Sphere Intersection</h3>
+
+<p>計算射線和球體的交點，可以參照 <code>/pbrt-v2/shapes/sphere.cpp</code> 中 <code>bool Shpere::Intersect()</code> 的算法。</p>
+
+<p>假設球體圓心座標 \(O\)，射線單位向量 \(I\) 的起點座標 \(C\)，且最近目標交點座標 \(P\)，原半徑 \(\mathrm{radius}\)。射線走單位時間 \(t\) 會到達球面上。</p>
+
+<ul>
+<li>\(\overrightarrow{OC} + \overrightarrow{I} \times t = \overrightarrow{OP}\)</li>
+<li>\(|\overrightarrow{OP}| = \text{radius}\)</li>
+<li>\(|\overrightarrow{OC} + \overrightarrow{I} \times t| = |\overrightarrow{OP}|\)</li>
+<li>\(|\overrightarrow{I}|^2 t^2 + 2 \; (\overrightarrow{OC} \cdot \overrightarrow{I}) \; t + |\overrightarrow{OC}|^2 - \text{radius}^2 = 0\)</li>
+</ul>
+
+<p>解一元二次方程式之後可以得到 \(t\) 得值，並得到交點座標 \(P\)。</p>
+
+<h3 id="toc_3">Snell&#39;s Law</h3>
+
+<p>根據物理法則斯乃爾定律計算折射的方向向量，課程中提供三種做法</p>
+
+<ul>
+<li>Whitted&#39;s Method</li>
+<li>Heckbert&#39;s Method</li>
+<li>Other Method</li>
+</ul>
+
+<p>其中以 Heckbert&#39;s Method 消耗最少計算數。</p>
+
+<h3 id="toc_4">RasterToCamera</h3>
+
+<p>這部分處理後得到 <code>Transform RasterToCamera</code>。若計算錯誤，會造成一片黑或者圖片顯示的大小問題。座標轉換處理細節可以參考實際的例子，如下圖所示：</p>
+
+<p><img src="images/cambasic1A.png" alt="http://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-generating-camera-rays/generating-camera-rays"></p>
+
+<h3 id="toc_5">Ray Weight</h3>
+
+<p>作業要求經過 <code>float GenerateRay()</code> 回傳 \(\mathrm{weight} = \frac{\cos^4 \theta&#39;}{Z^2}\)，這麼設置會過暗，離 camera 最遠的透鏡半徑 \(r\)，則根據實驗需要多呈上一個常數 \(r^2 \pi\)，其原因猜測在於 ray 經過多次反射後 weight 若小於某一定值後會停止反射，所導致 weight 過小而黑幕情況。在 \(Z\) 值部分，採用在最後一個透鏡 (離 camera 最遠) 得表面得到與 camera 的 z 軸距離 \(Z\) 以及從最後一個透鏡折射出去的點到 camera 的向量與 \(\mathrm{Vector}(0, 0, 1)\) 的夾角 \(\theta&#39;\) 較為貼近期望所需。</p>
+
+<h3>Final Images Rendered Compare</h3>
+
+<h4>Gauss Lens</h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+     <td width="50%"><img border="0" src="images/ref/dof-dragons.dgauss_512ref.jpg">
+     	<p><font color="#008000"><tt>Reference</tt></font><p>
+    </td>
+    <td width="50%"><img border="0" src="images/expr/dof-dragons.dgauss_512.jpg">
+    	<p><font color="#008000"><tt>My Implementation</tt></font><p>
+    </td>
+  </tr>
+</table>
+
+<h4>Fisheye Lens</h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+     <td width="50%"><img border="0" src="images/ref/dof-dragons.fisheye_512ref.jpg">
+      <p><font color="#008000"><tt>Reference</tt></font><p>
+    </td>
+    <td width="50%"><img border="0" src="images/expr/dof-dragons.fisheye_512.jpg">
+      <p><font color="#008000"><tt>My Implementation</tt></font><p>
+    </td>
+  </tr>
+</table>
+
+<h4>Telephoto Lens</h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+     <td width="50%"><img border="0" src="images/ref/dof-dragons.telephoto_512ref.jpg">
+      <p><font color="#008000"><tt>Reference</tt></font><p>
+    </td>
+    <td width="50%"><img border="0" src="images/expr/dof-dragons.telephoto_512.jpg">
+      <p><font color="#008000"><tt>My Implementation</tt></font><p>
+    </td>
+  </tr>
+</table>
 
 
+<h4>Wide-Angle Lens</h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+     <td width="50%"><img border="0" src="images/ref/dof-dragons.wide_512ref.jpg">
+      <p><font color="#008000"><tt>Reference</tt></font><p>
+    </td>
+    <td width="50%"><img border="0" src="images/expr/dof-dragons.wide_512.jpg">
+      <p><font color="#008000"><tt>My Implementation</tt></font><p>
+    </td>
+  </tr>
+</table>
 
 
 <script type="text/javascript">
