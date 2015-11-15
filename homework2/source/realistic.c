@@ -57,7 +57,7 @@ float RealisticCamera::ReadSpecFile(string fileName) {
 		aperture /= 2.0f;	// diameter to radius
 		Lens lens = {
 			radius, axpos, (N == 0) ? 1 : N, aperture, 
-			N == 0, -dist
+			N == 0, -dist, Point(0.f, 0.f, -dist - radius)
 		};
 
 		lensgroup.push_back(lens);
@@ -116,6 +116,7 @@ float RealisticCamera::GenerateRay(const CameraSample &sample, Ray *ray) const {
 
 	ray->maxt = (yon - hither) / ray->d.z;
 	CameraToWorld(*ray, ray);
+	ray->d = Normalize(ray->d);
 	return weight;
 }
 
@@ -129,9 +130,9 @@ bool Lens::Refraction(Ray *ray, float n2) const {
 	// |\overrightarrow{I}|^2 t^2 + 2 \overrightarrow{OC} \cdot \overrightarrow{I} t + |\overrightarrow{OC}|^2 - \text{radius}^2 = 0
 	// quadratic equation about t.
 	Vector I = ray->d;
-	Point C = Point(0.f, 0.f, z - radius);
-	Vector OC = ray->o - C;
-	float b = Dot(OC, I), c = OC.LengthSquared() - radius * radius;
+	Vector oc = ray->o - o;
+	float b = I.x * oc.x + I.y * oc.y + I.z * oc.z;
+	float c = oc.x * oc.x + oc.y * oc.y + oc.z * oc.z - radius * radius;
 	float discrim = b * b - c, t;
 	if (discrim <= 0.f)	return false;
 	float rootDiscrim = sqrtf(discrim);
@@ -146,7 +147,7 @@ bool Lens::Refraction(Ray *ray, float n2) const {
 	if (outOfRange(ray->o.x, ray->o.y))
 		return false;
 
-	Vector N = Normalize(C - ray->o);
+	Vector N = Normalize(o - ray->o);
 	if (radius < 0.f)
 		N = -N;
 	// Whitted's Method
