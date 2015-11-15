@@ -109,7 +109,7 @@ float RealisticCamera::GenerateRay(const CameraSample &sample, Ray *ray) const {
 	}	
 	
 	// set exposure weight
-	float cosTheta = ray->d.z;
+	float cosTheta = Dot(Normalize(ray->o - Pcamera), Vector(0, 0, 1));
 	float Z = filmdistance + ray->o.z;
 	float weight = (backLens.aperture * backLens.aperture * M_PI) / ( Z * Z);
 	weight = weight * cosTheta * cosTheta * cosTheta * cosTheta;
