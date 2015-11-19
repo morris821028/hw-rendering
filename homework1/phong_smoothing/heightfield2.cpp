@@ -280,7 +280,7 @@ bool mTriangle::Intersect (const Ray &ray, float *tHit, float *rayEpsilon,
     float tu = b0*p1.x + b1*p2.x + b2*p3.x;
     float tv = b0*p1.y + b1*p2.y + b2*p3.y;
 	Point tp = (ray(t));
-	tu = tp.x, tv = tp.y;
+	tu = tp.x, tv = tp.y; 
     *dg = DifferentialGeometry((objToWorld) (ray(t)), (objToWorld) (dpdu), (objToWorld) (dpdv),
                                (objToWorld) (Normal(0,0,0)), (objToWorld) (Normal(0,0,0)),
                                tu, tv, belong);
@@ -412,6 +412,8 @@ void Heightfield2::initFieldNormals() {
 
 void Heightfield2::GetShadingGeometry(const Transform &obj2world,
         const DifferentialGeometry &dg, DifferentialGeometry *dgShading) const {
+	// *dgShading = dg;
+	// return ;
 	int x = Clamp(Float2Int(dg.u * (nx-1)), 0, nx - 1), 
 		y = Clamp(Float2Int(dg.v * (ny-1)), 0, ny - 1);
 

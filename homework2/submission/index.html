@@ -1,0 +1,348 @@
+<html>
+<head>
+<title>
+CSIE5098 - HW2
+</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+    <link rel="stylesheet" type="text/css" href="simple.css">
+</head>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF" LINK="#0000EE" VLINK="#551A8B" ALINK="#FF0000">
+
+<h2>Homework 2 - Realistic Camera</h2>
+
+<p>CSIE5098 - Digital Image Synthesis</p>
+
+<p><font color="#008000">Shiang-Yun Yang 楊翔雲</font></p>
+<p>Date submitted: <font color="#008000">20 Nov 2015</font></p>
+
+<p>Code emailed: <font color="#008000">20 Nov 2015</font></p>
+
+
+<h3 id="toc_1">Description of implementation approach and comments</h3>
+
+<ul>
+<li>Windows 7 64-bits</li>
+<li>Comipler &amp; IDE: Microsoft Visual Studio 2012</li>
+<li>Image View Software: IrfanView</li>
+<li>Intel(R) Core(TM) i5-3470 CPU @ 3.20GHz 3.20GHz</li>
+<li>Intel(R) HD Graphics </li>
+<li>RAM 4.00 GB</li>
+</ul>
+
+<h3 id="toc_2">Ray Sphere Intersection</h3>
+
+
+
+<p>計算射線和球體的交點，可以參照 <code>/pbrt-v2/shapes/sphere.cpp</code> 中 <code>bool Shpere::Intersect()</code> 的算法。</p>
+
+<p>假設球體圓心座標 \(O\)，射線單位向量 \(I\) 的起點座標 \(C\)，且最近目標交點座標 \(P\)，原半徑 \(\mathrm{radius}\)。射線走單位時間 \(t\) 會到達球面上。</p>
+
+<ul>
+<li>\(\overrightarrow{OC} + \overrightarrow{I} \times t = \overrightarrow{OP}\)</li>
+<li>\(|\overrightarrow{OP}| = \text{radius}\)</li>
+<li>\(|\overrightarrow{OC} + \overrightarrow{I} \times t| = |\overrightarrow{OP}|\)</li>
+<li>\(|\overrightarrow{I}|^2 t^2 + 2 \; (\overrightarrow{OC} \cdot \overrightarrow{I}) \; t + |\overrightarrow{OC}|^2 - \text{radius}^2 = 0\)</li>
+</ul>
+
+<img src="images/hw2_circle_intersect.png" alt="circle intersect" style="max-width:30%; max-height: 30%"></img>
+
+
+<p>解一元二次方程式之後可以得到 \(t\) 得值，並得到交點座標 \(P\)。</p>
+
+<h3 id="toc_3">Snell&#39;s Law</h3>
+
+<p>根據物理法則斯乃爾定律計算折射的方向向量，課程中提供三種做法。</p>
+
+<p>變數解釋：入射介面材質 \(\eta_1\)，折射介面材質 \(\eta_2\)，入射單位向量 \(\overrightarrow{I}\)，交點面法向量 \(\overrightarrow{N}\)，折射方向向量 \(\overrightarrow{T}\)</p>
+
+<p>特別小心 <code>ray-&gt;d = Normalize(ray-&gt;d)</code> 的處理，Heckbert&#39;s Method 計算維持在單位圓上，故不用做最後的正規化計算。</p>
+
+<h4 id="toc_4">Whitted&#39;s Method</h4>
+
+<table>
+<thead>
+<tr>
+<th>\(\sqrt{}\)</th>
+<th>\(/\)</th>
+<th>\(\times\)</th>
+<th>\(+\)</th>
+<th>compute</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td></td>
+<td>1</td>
+<td></td>
+<td></td>
+<td>\(n = \eta_1 / \eta_2\)</td>
+</tr>
+<tr>
+<td></td>
+<td>3</td>
+<td>3</td>
+<td>2</td>
+<td>\(I&#39; = I / (-I \cdot N)\)</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td>3</td>
+<td>\(J = I&#39; + N \)</td>
+</tr>
+<tr>
+<td>1</td>
+<td>1</td>
+<td>8</td>
+<td>5</td>
+<td>\(\alpha = 1 / \sqrt{n^2(I&#39; \cdot I&#39;) - (J \cdot J)}\)</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>3</td>
+<td>3</td>
+<td>\(T&#39; = \alpha J - N\)</td>
+</tr>
+<tr>
+<td>1</td>
+<td>3</td>
+<td>3</td>
+<td>2</td>
+<td>\(T&#39; = T&#39; / \| T&#39; \| \)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>8</td>
+<td>17</td>
+<td>15</td>
+<td>TOTAL</td>
+</tr>
+</tbody>
+</table>
+
+<h4 id="toc_5">Heckbert&#39;s Method</h4>
+
+<table>
+<thead>
+<tr>
+<th>\(\sqrt{}\)</th>
+<th>\(/\)</th>
+<th>\(\times\)</th>
+<th>\(+\)</th>
+<th>compute</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td></td>
+<td>1</td>
+<td></td>
+<td></td>
+<td>\(\eta = \eta_1 / \eta_2\)</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>3</td>
+<td>2</td>
+<td>\(c_1 = - I \cdot N\)</td>
+</tr>
+<tr>
+<td>1</td>
+<td></td>
+<td>3</td>
+<td>2</td>
+<td>\(c_2 = \sqrt{1 - \eta^2(1 - c_1^2)}\)</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>7</td>
+<td>4</td>
+<td>\(T = \eta I + (\eta c_1 - c_2) N\)</td>
+</tr>
+<tr>
+<td>1</td>
+<td>1</td>
+<td>13</td>
+<td>8</td>
+<td>TOTAL</td>
+</tr>
+</tbody>
+</table>
+
+<h4 id="toc_6">Other Method</h4>
+
+<table>
+<thead>
+<tr>
+<th>\(\sqrt{}\)</th>
+<th>\(/\)</th>
+<th>\(\times\)</th>
+<th>\(+\)</th>
+<th>compute</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td></td>
+<td>1</td>
+<td></td>
+<td></td>
+<td>\(n = \eta_2 / \eta_1\)</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>3</td>
+<td>2</td>
+<td>\(c_1 = - I \cdot N\)</td>
+</tr>
+<tr>
+<td>1</td>
+<td></td>
+<td>2</td>
+<td>3</td>
+<td>\(\beta = c_1 \sqrt{n^2 - 1 + c_1^2} \)</td>
+</tr>
+<tr>
+<td></td>
+<td>3</td>
+<td>3</td>
+<td>3</td>
+<td>\(T = (I + \beta N ) / n\)</td>
+</tr>
+<tr>
+<td>1</td>
+<td>4</td>
+<td>8</td>
+<td>8</td>
+<td>TOTAL</td>
+</tr>
+</tbody>
+</table>
+
+<p>其中以 Heckbert&#39;s Method 消耗最少計算數。如果除法速度快於乘法，則使用 Other Method，原則上很少有機器運算除法比乘法快。</p>
+
+<h3 id="toc_7">RasterToCamera</h3>
+
+<p>這部分處理後得到 <code>Transform RasterToCamera</code>。若計算錯誤，會造成一片黑或者圖片顯示的大小問題。座標轉換處理細節可以參考實際的例子，如下圖所示：</p>
+
+<p><img src="images/cambasic1A.png" alt="http://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-generating-camera-rays/generating-camera-rays"></p>
+
+<ul>
+<li>Raster-To-NDC 轉換矩陣 \(A=\text{Scale}(scale, scale, 1)\)，進行縮放。</li>
+<li>NDC-To-Camera 轉換矩陣 \(B=\text{Translate}(Vector(0, 0, filedistance)) \times \text{Translate}(Vector(X, -Y, 0))\)，進行位移。</li>
+<li>最後得到 RasterToCamera 轉換矩陣 \(C= B \times A \times \text{Scale}(-1, 1, 1)\)，最後將 x 軸顛倒以符合成像問題。</li>
+</ul>
+
+<h3 id="toc_8">Ray Weight</h3>
+
+<p>作業要求經過 <code>float GenerateRay()</code> 回傳 \(\mathrm{weight} = \frac{\cos^4 \theta&#39;}{Z^2}\)，這麼設置會過暗，根據論文 A Realistic Camera Model for Computer Graphics 中寫道</p>
+
+<blockquote>
+<p>If the exit pupil subtends a small solid angle from \(x&#39;\), \(\theta&#39;\) can be assumed to be constant and equal the angle between \(x&#39;\) and the center of the disk. This allows us to simplify \[E(x&#39;) = \int_{x&#39;&#39; \in D} L(x&#39;&#39;, x&#39;) \frac{\cos \theta&#39; \cos \theta&#39;&#39;}{\| x&#39;&#39; - x&#39;\|} dA&#39;&#39;\] to: \[E(x&#39;) = L \frac{A}{Z^2} \cos^4 \theta&#39;\]
+where \(Z\) is the axial distance from the film plane to the dist and \(A\) is the area of the disk. </p>
+<img src="images/paperfigure6.jpg" alt="A Realistic Camera Model for Computer Graphics: Figure 6">
+</blockquote>
+
+<p>因此需要額外乘上常數 \(A\)，其中 \(A\) 是最裡層的透鏡，因為我們是根據最裡層的透鏡面做均勻取樣，得到 \(A = \mathit{backLens.radius}^2 \pi\)。</p>
+
+<h3>Final Images Rendered Compare</h3>
+
+<h4>Gauss Lens</h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+     <td width="25%"><img border="0" src="images/ref/dof-dragons.dgauss_512ref.jpg">
+     	<p><font color="#008000"><tt>Reference</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/sampling1/dof-dragons.dgauss_512.jpg">
+    	<p><font color="#008000"><tt>My Implementation (Sampling 1)</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/sampling2/dof-dragons.dgauss_512.jpg">
+      <p><font color="#008000"><tt>My Implementation (Sampling 2)</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/sampling3/dof-dragons.dgauss_512.jpg">
+      <p><font color="#008000"><tt>My Implementation (Sampling 3)</tt></font><p>
+    </td>
+  </tr>
+</table>
+
+<h4>Fisheye Lens</h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+     <td width="25%"><img border="0" src="images/ref/dof-dragons.fisheye_512ref.jpg">
+      <p><font color="#008000"><tt>Reference</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/sampling1/dof-dragons.fisheye_512.jpg">
+      <p><font color="#008000"><tt>My Implementation (Sampling 1)</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/sampling2/dof-dragons.fisheye_512.jpg">
+      <p><font color="#008000"><tt>My Implementation (Sampling 2)</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/sampling3/dof-dragons.fisheye_512.jpg">
+      <p><font color="#008000"><tt>My Implementation (Sampling 3)</tt></font><p>
+    </td>
+  </tr>
+</table>
+
+<h4>Telephoto Lens</h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+     <td width="25%"><img border="0" src="images/ref/dof-dragons.telephoto_512ref.jpg">
+      <p><font color="#008000"><tt>Reference</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/sampling1/dof-dragons.telephoto_512.jpg">
+      <p><font color="#008000"><tt>My Implementation (Sampling 1)</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/sampling2/dof-dragons.telephoto_512.jpg">
+      <p><font color="#008000"><tt>My Implementation (Sampling 2)</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/sampling3/dof-dragons.telephoto_512.jpg">
+      <p><font color="#008000"><tt>My Implementation (Sampling 3)</tt></font><p>
+    </td>
+  </tr>
+</table>
+
+
+<h4>Wide-Angle Lens</h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+     <td width="25%"><img border="0" src="images/ref/dof-dragons.wide_512ref.jpg">
+      <p><font color="#008000"><tt>Reference</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/sampling1/dof-dragons.wide_512.jpg">
+      <p><font color="#008000"><tt>My Implementation (Sampling 1)</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/sampling2/dof-dragons.wide_512.jpg">
+      <p><font color="#008000"><tt>My Implementation (Sampling 2)</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/sampling3/dof-dragons.wide_512.jpg">
+      <p><font color="#008000"><tt>My Implementation (Sampling 3)</tt></font><p>
+    </td>
+  </tr>
+</table>
+
+
+<script type="text/javascript">
+!function(){"undefined"!=typeof self&&self.Prism&&self.document&&Prism.hooks.add("complete",function(e){if(e.code){var t=e.element.parentNode,s=/\s*\bline-numbers\b\s*/;if(t&&/pre/i.test(t.nodeName)&&(s.test(t.className)||s.test(e.element.className))&&!e.element.querySelector(".line-numbers-rows")){s.test(e.element.className)&&(e.element.className=e.element.className.replace(s,"")),s.test(t.className)||(t.className+=" line-numbers");var n,a=e.code.match(/\n(?!$)/g),l=a?a.length+1:1,m=new Array(l+1);m=m.join("<span></span>"),n=document.createElement("span"),n.className="line-numbers-rows",n.innerHTML=m,t.hasAttribute("data-start")&&(t.style.counterReset="linenumber "+(parseInt(t.getAttribute("data-start"),10)-1)),e.element.appendChild(n)}}})}();
+</script>
+<script type="text/x-mathjax-config">
+if (typeof MathJaxListener !== 'undefined') {
+  MathJax.Hub.Register.StartupHook('End', function () {
+    MathJaxListener.invokeCallbackForKey_('End');
+  });
+}
+</script>
+<script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+</body>
+
+
+</html>
