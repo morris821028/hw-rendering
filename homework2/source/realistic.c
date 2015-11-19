@@ -64,7 +64,7 @@ float RealisticCamera::ReadSpecFile(string fileName) {
 		dist += axpos;
 	}
 	backLensAperture = lensgroup.back().aperture;
-	printf("#Lens = %d\n", lensgroup.size());
+	// printf("#Lens = %d\n", lensgroup.size());
 	fin.close();
 	return dist;
 }
@@ -77,14 +77,28 @@ float RealisticCamera::GenerateRay(const CameraSample &sample, Ray *ray) const {
 
 	const Lens &backLens = lensgroup.back();
 	float lensU, lensV, lensZ;
+
 	// Get Sample Pback (lensU, lensV, -distToBack)
+
+	// Method 1: pbrt-v2 provide
 	ConcentricSampleDisk(sample.lensU, sample.lensV, &lensU, &lensV);
 	lensU *= backLensAperture;
 	lensV *= backLensAperture;
 	lensZ = -distToBack;
 
+	// Method 2: textbook, r = \sqrt{lensU}, theta = 2 \pi lensV
+	//float r = sqrtf(sample.lensU), theta = 2 * M_PI * sample.lensV;
+	//lensU = backLens.aperture * r * cosf(theta);
+	//lensV = backLens.aperture * r * sinf(theta);
+	//lensZ = -distToBack;
+
+	// Method 3: textbook refer common error sampling, r = lensU, theta = 2 \pi lensV
+	//float r = sample.lensU, theta = 2 * M_PI * sample.lensV;
+	//lensU = backLens.aperture * r * cosf(theta);
+	//lensV = backLens.aperture * r * sinf(theta);
+	//lensZ = -distToBack;
+
 	// camera -> inner lens -> outer lens
-	// sphere coordinate x^2 + y^2 + z^2 = r^2
 
 	// hit point on the surface of the inner lens
 	ray->o = Pcamera;
@@ -110,7 +124,7 @@ float RealisticCamera::GenerateRay(const CameraSample &sample, Ray *ray) const {
 	
 	// set exposure weight
 	float cosTheta = Dot(Normalize(ray->o - Pcamera), Vector(0, 0, 1));
-	float Z = filmdistance + ray->o.z;
+	float Z = filmdistance;
 	float weight = (backLens.aperture * backLens.aperture * M_PI) / ( Z * Z);
 	weight = weight * cosTheta * cosTheta * cosTheta * cosTheta;
 
