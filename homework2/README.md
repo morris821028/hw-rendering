@@ -83,7 +83,30 @@
 
 > If the exit pupil subtends a small solid angle from $x'$, $\theta'$ can be assumed to be constant and equal the angle between $x'$ and the center of the disk. This allows us to simplify $$E(x') = \int_{x'' \in D} L(x'', x') \frac{\cos \theta' \cos \theta''}{\| x'' - x'\|} dA''$$ to: $$E(x') = L \frac{A}{Z^2} \cos^4 \theta'$$
 > where $Z$ is the axial distance from the film plane to the dist and $A$ is the area of the disk. 
-> ![A Realistic Camera Model for Computer Graphics: Figure 6](submission/images/paperfigure6.jpg)
 
-因此需要額外乘上常數 $A$，其中 $A$ 是最裡層的透鏡，因為我們是根據最裡層的透鏡面做均勻取樣，得到 $A = \mathit{backLens.radius}^2 \pi$。
+![A Realistic Camera Model for Computer Graphics: Figure 6](submission/images/paperfigure6.jpg)
 
+因此需要額外乘上常數 $A$，其中 $A$ 是最裡層的透鏡面積，因為我們是根據最裡層的透鏡面做均勻取樣，得到 $A = \mathit{backLens.radius}^2 \pi$。
+
+### Sampling ###
+
+單位圓均勻取樣方法有以下兩種，而非均勻取樣的寫法可參照 Sample 3 (錯誤的做法參照) 出來的效果看出。
+
+#### Sampling 1
+
+採用內建函數 `CencentricSampleDisk()`，採用 A Low Distortion Map Between Disk and Square 論文中提到的方案，將一個正方形壓縮到一個圓形中。參照作法如下圖所示  ![](submission/images/pbrt_low_distortion.gif)
+
+其中給定 $a, b$ 均勻分布 $[0, 1]$，則得到 $r = a, \; \phi = \frac{\pi}{4} \frac{b}{a}$，最後計算得到座標 $x = r \cos \phi, \; y = r \sin \phi$。
+
+#### Sampling 2
+
+採用教科書上提供，其中給定 $a, b$ 均勻分布 $[0, 1]$，令 $r = \sqrt{a}, \; \phi = 2 \pi b$，最後計算得到座標 $x = r \cos \phi, \; y = r \sin \phi$。
+
+#### Sampling 3
+
+給定 $a, b$ 均勻分布 $[0, 1]$，令 $r = a, \; \phi = 2 \pi b$，最後計算得到座標 $x = r \cos \phi, \; y = r \sin \phi$。這種寫法在相同半徑下，角度均勻分布，不同半徑下的周長與 $r$ 成正比，導致不同半徑的取樣點不均勻，越靠近中心點取樣越密集，意即容易造成中心點看起來較亮。
+
+## Reference ##
+
+* [PBRT学习笔记：在单位圆内部均匀采样 - 
+codeboycjy的专栏](http://blog.csdn.net/codeboycjy/article/details/6225886)
