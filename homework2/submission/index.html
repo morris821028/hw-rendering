@@ -14,9 +14,9 @@ CSIE5098 - HW2
 <p>CSIE5098 - Digital Image Synthesis</p>
 
 <p><font color="#008000">Shiang-Yun Yang 楊翔雲</font></p>
-<p>Date submitted: <font color="#008000">20 Nov 2015</font></p>
+<p>Date submitted: <font color="#008000">26 Nov 2015</font></p>
 
-<p>Code emailed: <font color="#008000">20 Nov 2015</font></p>
+<p>Code emailed: <font color="#008000">26 Nov 2015</font></p>
 
 
 <h3 id="toc_1">Description of implementation approach and comments</h3>
@@ -254,7 +254,71 @@ where \(Z\) is the axial distance from the film plane to the dist and \(A\) is t
 
 <p>因此需要額外乘上常數 \(A\)，其中 \(A\) 是最裡層的透鏡，因為我們是根據最裡層的透鏡面做均勻取樣，得到 \(A = \mathit{backLens.radius}^2 \pi\)。</p>
 
-<h3>Final Images Rendered Compare</h3>
+<h3 id="toc_9">Sampling</h3>
+
+<p>單位圓均勻取樣方法有以下兩種，而非均勻取樣的寫法可參照 Sample 3 (錯誤的做法參照) 出來的效果看出。</p>
+
+<h4 id="toc_10">Sampling 1</h4>
+
+<p>採用內建函數 <code>CencentricSampleDisk()</code>，採用 A Low Distortion Map Between Disk and Square 論文中提到的方案，將一個正方形壓縮到一個圓形中。參照作法如下圖所示  <img src="images/pbrt_low_distortion.gif" alt=""></p>
+
+<p>其中給定 \(a, b\) 均勻分布 \([0, 1]\)，則得到 \(r = a, \; \phi = \frac{\pi}{4} \frac{b}{a}\)，最後計算得到座標 \(x = r \cos \phi, \; y = r \sin \phi\)。</p>
+
+<h4 id="toc_11">Sampling 2</h4>
+
+<p>採用教科書上提供，其中給定 \(a, b\) 均勻分布 \([0, 1]\)，令 \(r = \sqrt{a}, \; \phi = 2 \pi b\)，最後計算得到座標 \(x = r \cos \phi, \; y = r \sin \phi\)。</p>
+
+<h4 id="toc_12">Sampling 3</h4>
+
+<p>給定 \(a, b\) 均勻分布 \([0, 1]\)，令 \(r = a, \; \phi = 2 \pi b\)，最後計算得到座標 \(x = r \cos \phi, \; y = r \sin \phi\)。這種寫法在相同半徑下，角度均勻分布，不同半徑下的周長與 \(r\) 成正比，導致不同半徑的取樣點不均勻，越靠近中心點取樣越密集，意即容易造成中心點看起來較亮。</p>
+
+<h2 id="toc_13">Reference</h2>
+
+<ul>
+<li><a href="http://blog.csdn.net/codeboycjy/article/details/6225886">PBRT学习笔记：在单位圆内部均匀采样 - 
+codeboycjy的专栏</a></li>
+</ul>
+
+<h3>Final Images Rendered Compare 4 samples</h3>
+
+<h4>Gauss Lens</h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+     <td width="25%"><img border="0" src="images/expr/dof-dragons.dgauss_4.jpg">
+      <p><font color="#008000"><tt>My Implementation (Sampling 1)</tt></font><p>
+    </td>
+  </tr>
+</table>
+
+<h4>Fisheye Lens</h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+     <td width="25%"><img border="0" src="images/expr/dof-dragons.fisheye_4.jpg">
+      <p><font color="#008000"><tt>Reference</tt></font><p>
+    </td>
+  </tr>
+</table>
+
+<h4>Telephoto Lens</h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+     <td width="25%"><img border="0" src="images/expr/dof-dragons.telephoto_4.jpg">
+      <p><font color="#008000"><tt>Reference</tt></font><p>
+    </td>
+  </tr>
+</table>
+
+
+<h4>Wide-Angle Lens</h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+     <td width="25%"><img border="0" src="images/expr/dof-dragons.wide_4.jpg">
+      <p><font color="#008000"><tt>Reference</tt></font><p>
+    </td>
+  </tr>
+</table>
+
+<h3>Final Images Rendered Compare 512 samples</h3>
 
 <h4>Gauss Lens</h4>
 <table border="0" width="100%" cellspacing="0" cellpadding="0">
