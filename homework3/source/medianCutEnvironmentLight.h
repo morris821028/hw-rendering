@@ -44,6 +44,14 @@
 #include "scene.h"
 #include "mipmap.h"
 
+// virtual lights represent equal-energy areas
+struct VLRA {
+	float u, v;
+	Spectrum spectrum;
+	VLRA() {}
+	VLRA(float u, float v, Spectrum spectrum):
+		u(u), v(v), spectrum(spectrum) {}
+};
 // MedianCutEnvironmentLight Declarations
 class MedianCutEnvironmentLight : public Light {
 public:
@@ -65,10 +73,13 @@ private:
     // MedianCutEnvironmentLight Private Data
     MIPMap<RGBSpectrum> *radianceMap;
     Distribution2D *distribution;
+	// R04922067 add
+	float PDF;
+	vector<VLRA> VLRAs;
 };
 
 
  MedianCutEnvironmentLight * CreateMedianCutEnvironmentLight(const Transform &light2world,
         const ParamSet &paramSet);
 
-#endif // PBRT_LIGHTS_INFINITE_H
+#endif // PBRT_LIGHTS_MEDIANCUTEMV_H

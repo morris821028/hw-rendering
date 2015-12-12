@@ -38,6 +38,7 @@
 #include "paramset.h"
 #include "imageio.h"
 
+#define DEBUG
 // MedianCutEnvironmentLight Utility Classes
 struct MedianCutEnvironmentLightCube {
     // MedianCutEnvironmentLight Public Methods
@@ -83,12 +84,18 @@ MedianCutEnvironmentLight::MedianCutEnvironmentLight(const Transform &light2worl
         texels[0] = L.ToRGBSpectrum();
     }
     radianceMap = new MIPMap<RGBSpectrum>(width, height, texels);
-    delete[] texels;
+	
     // Initialize sampling PDFs for environment light
-	/**
-	 * modify here
-	 */
-    // Compute scalar-valued image _img_ from environment map
+
+	// Remember to scale the light intensity with the areas (solid angles)
+	float solidAngleScale = ((2.f * M_PI) / (width)) * ((M_PI) / (height));
+	for (int v = 0; v < height; v++) {
+        float sinTheta = sinf(M_PI * float(v+.5f)/float(height));
+		for (int u = 0; u < width; u++)
+			texels[u+v*width] = texels[u+v*width] * solidAngleScale * sinTheta;
+	}
+
+	// Compute scalar-valued image _img_ from environment map
     float filter = 1.f / max(width, height);
     float *img = new float[width*height];
     for (int v = 0; v < height; ++v) {
@@ -100,6 +107,127 @@ MedianCutEnvironmentLight::MedianCutEnvironmentLight(const Transform &light2worl
             img[u+v*width] *= sinTheta;
         }
     }
+
+#ifdef DEBUG
+	printf("Morris working ! ------------------------------------\n");
+	printf("width %d height %d\n", width, height);
+	fflush(stdin);
+#endif
+
+	float *sumTable = new float[width*height];
+	float *columnSum = new float[width];
+	for (int u = 0; u < width; u++)
+		columnSum[u] = 0;
+#define VERT(u, v) ((u)+(v)*width)
+	for (int v = 0; v < height; v++) {
+		float leftsum = 0;
+		for (int u = 0; u < width; u++) {
+			leftsum += img[VERT(u, v)] * solidAngleScale;
+			if (v > 0)
+				sumTable[VERT(u, v)] = sumTable[VERT(u, v-1)] + leftsum;
+			else
+				sumTable[VERT(u, v)] = leftsum;
+		}
+	}
+#ifdef DEBUG
+	/*
+	for (int v = 0; v < height; v++) {
+		for (int u = 0; u < width; u++)
+			printf("%f ", sumTable[VERT(u, v)]);
+		puts("");
+	}
+	fflush(stdin);
+	*/
+#endif
+	struct Region {
+		int lu, lv, ru, rv;
+		Region(int lu = 0, int lv = 0, int ru = 0, int rv = 0): 
+			lu(lu), lv(lv), ru(ru), rv(rv) {}
+		float getEnergy(float sumTable[], int width, int height) {
+			float e = sumTable[VERT(ru, rv)];
+			if (lu)	e -= sumTable[VERT(lu-1, rv)];
+			if (lv)	e -= sumTable[VERT(ru, lv-1)];
+			if (lu && lv)	e += sumTable[VERT(lu-1, lv-1)];
+			return e;
+		}
+		int getAxis() {
+			return ru - lu > rv - lv ? 0 : 1;
+		}
+	};
+#undef VERT
+	
+	vector<Region> Rs;
+	Rs.push_back(Region(0, 0, width-1, height-1));
+
+	// A light probe image is subdivided into 64 equal energy regions
+	int partitions_regions = 64;
+	for (int it = 0; it < 8 && Rs.size() < partitions_regions; it ++) {
+		vector<Region> nextRs;
+		for (Region region : Rs) {
+			float half_energy = region.getEnergy(sumTable, width, height) * 0.5f;
+			int div_axis = region.getAxis();
+
+			// printf("Region %d: %d %d %d %d %f\n", it, region.lu, region.lv, region.ru, region.rv, region.getEnergy(sumTable, width, height));
+
+			int lu = region.lu, lv = region.lv, ru = region.ru, rv = region.rv;
+			if (div_axis == 0) {
+				int l = lu, r = ru, mid, ret = lu;
+				while (l <= r) {
+					mid = (l + r)/2;
+					// printf("binary x %d %d %d %f\n", l, r, mid, Region(lu, lv, mid, rv).getEnergy(sumTable, width, height));
+					if (Region(lu, lv, mid, rv).getEnergy(sumTable, width, height) < half_energy)
+						l = mid + 1, ret = mid;
+					else
+						r = mid - 1;
+				}
+				nextRs.push_back(Region(lu, lv, ret, rv));
+				if (ret+1 <= ru)
+					nextRs.push_back(Region(ret+1, lv, ru, rv));
+			} else {
+				int l = lv, r = rv, mid, ret = lv;
+				while (l <= r) {
+					mid = (l + r)/2;
+					// printf("binary x %d %d %d %f\n", l, r, mid, Region(lu, lv, ru, mid).getEnergy(sumTable, width, height));
+					if (Region(lu, lv, ru, mid).getEnergy(sumTable, width, height) < half_energy)
+						l = mid + 1, ret = mid;
+					else
+						r = mid - 1;
+				}
+				nextRs.push_back(Region(lu, lv, ru, ret));
+				if (ret+1 <= rv)
+					nextRs.push_back(Region(lu, ret+1, ru, rv));
+			}
+		}
+		Rs = nextRs;
+	}
+
+	// computing : A point light is created for each region at its centroid
+	float v_scale = 1.f / height, u_scale = 1.f / width;
+	this->PDF = 1.f / Rs.size();
+	this->VLRAs = vector<VLRA>(Rs.size());
+	for (int it = 0; it < Rs.size(); it++) {
+		RGBSpectrum spectrum = RGBSpectrum(0.f);
+		Region region = Rs[it];
+		float cv = 0.f, cu = 0.f, sumf = 0;
+
+#define VERT(u, v) ((u)+(v)*width)
+		for (int v = region.lv; v <= region.rv; v++) {
+			for (int u = region.lu; u <= region.ru; u++) {
+				spectrum += texels[VERT(u, v)];
+				float f = img[VERT(u, v)];
+				cv += v * f, cu += u * f, sumf += f;
+			}
+		}
+#undef VERT
+		this->VLRAs[it] = VLRA(cu / sumf * v_scale, cv / sumf * u_scale, spectrum);
+	}
+
+	for (int it = 0; it < Rs.size(); it++) {
+		printf("Region %d: %d %d %d %d %f\n", it, Rs[it].lu, Rs[it].lv, Rs[it].ru, Rs[it].rv, Rs[it].getEnergy(sumTable, width, height));
+	}
+	fflush(stdin);
+	
+    delete[] texels;
 
     // Compute sampling distributions for rows and columns of image
     distribution = new Distribution2D(img, width, height);
@@ -198,28 +326,24 @@ Spectrum MedianCutEnvironmentLight::Sample_L(const Point &p, float pEpsilon,
         const LightSample &ls, float time, Vector *wi, float *pdf,
         VisibilityTester *visibility) const {
     PBRT_INFINITE_LIGHT_STARTED_SAMPLE();
-	/**
-	 * modify here
-	 */
-    // Find $(u,v)$ sample coordinates in infinite light texture
-    float uv[2], mapPdf;
-    distribution->SampleContinuous(ls.uPos[0], ls.uPos[1], uv, &mapPdf);
-    if (mapPdf == 0.f) return 0.f;
 
+	// When pbrt asks a sample from environment light, uniformly 
+	// select one from all lights and return its direction, intensity and PDF
+	VLRA vlra = VLRAs[Floor2Int(ls.uComponent * VLRAs.size())];
+	
     // Convert infinite light sample point to direction
-    float theta = uv[1] * M_PI, phi = uv[0] * 2.f * M_PI;
+    float theta = vlra.u * M_PI, phi = vlra.v * 2.f * M_PI;
     float costheta = cosf(theta), sintheta = sinf(theta);
     float sinphi = sinf(phi), cosphi = cosf(phi);
     *wi = LightToWorld(Vector(sintheta * cosphi, sintheta * sinphi,
                               costheta));
 
-    // Compute PDF for sampled infinite light direction
-    *pdf = mapPdf / (2.f * M_PI * M_PI * sintheta);
-    if (sintheta == 0.f) *pdf = 0.f;
+    // Compute PDF for sampled MedianCut environment light direction
+    *pdf = this->PDF;
 
-    // Return radiance value for infinite light direction
+    // Return radiance value for MedianCut environment light direction
     visibility->SetRay(p, pEpsilon, *wi, time);
-    Spectrum Ls = Spectrum(radianceMap->Lookup(uv[0], uv[1]),
+	Spectrum Ls = Spectrum(vlra.spectrum,
                            SPECTRUM_ILLUMINANT);
     PBRT_INFINITE_LIGHT_FINISHED_SAMPLE();
     return Ls;
