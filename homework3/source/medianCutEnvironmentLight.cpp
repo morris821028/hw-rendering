@@ -83,8 +83,20 @@ MedianCutEnvironmentLight::MedianCutEnvironmentLight(const Transform &light2worl
         texels = new RGBSpectrum[1];
         texels[0] = L.ToRGBSpectrum();
     }
-    radianceMap = new MIPMap<RGBSpectrum>(width, height, texels);
 	
+    radianceMap = new MIPMap<RGBSpectrum>(width, height, texels);
+#ifdef DEBUG
+	float *debugimg = new float[width * height * 3];
+	for (int v = 0; v < height; v++) {
+		for (int u = 0; u < width; u++)
+			texels[u+v*width].ToRGB(debugimg+(u+v*width) * 3);
+	}
+	WriteImage("texmaptest.png", debugimg, NULL, width,
+                height, 0, 0, 0, 0);
+	printf("Morris working ! ------------------------------------\n");
+	printf("width %d height %d\n", width, height);
+	fflush(stdin);
+#endif
     // Initialize sampling PDFs for environment light
 
 	// Remember to scale the light intensity with the areas (solid angles)
@@ -108,11 +120,8 @@ MedianCutEnvironmentLight::MedianCutEnvironmentLight(const Transform &light2worl
         }
     }
 
-#ifdef DEBUG
-	printf("Morris working ! ------------------------------------\n");
-	printf("width %d height %d\n", width, height);
-	fflush(stdin);
-#endif
+
+
 
 	float *sumTable = new float[width*height];
 	float *columnSum = new float[width];
@@ -221,11 +230,71 @@ MedianCutEnvironmentLight::MedianCutEnvironmentLight(const Transform &light2worl
 #undef VERT
 		this->VLRAs[it] = VLRA(cu / sumf * v_scale, cv / sumf * u_scale, spectrum);
 	}
-
+#ifdef DEBUG
+	/*
+	float *debugimg = new float[width * height * 3];
+	for (int v = 0; v < height; v++) {
+		for (int u = 0; u < width; u++)
+			texels[u+v*width].ToRGB(debugimg+(u+v*width) * 3);
+	}
+	WriteImage("texmaptest.png", debugimg, NULL, width,
+                height, 0, 0, 0, 0);
+	*/
+	printf("Morris working ! ------------------------------------\n");
+	printf("width %d height %d\n", width, height);
+	fflush(stdin);
+	float borderRGB[3] = {powf(99.f/255.f, 2.2), powf(189.f/255.f, 2.2), powf(151.f/255.f, 2.2)};
+	float ptLightRGB[3] = {powf(217.f/255.f, 2.2), powf(68.f/255.f, 2.2), powf(54.f/255.f, 2.2)};
 	for (int it = 0; it < Rs.size(); it++) {
+		for (int u = Rs[it].lu, v; u <= Rs[it].ru; u++) {
+			v = Rs[it].lv;
+			debugimg[(u + v*width)*3 + 0] = borderRGB[0];
+			debugimg[(u + v*width)*3 + 1] = borderRGB[1];
+			debugimg[(u + v*width)*3 + 2] = borderRGB[2];
+			v = Rs[it].rv;
+			debugimg[(u + v*width)*3 + 0] = borderRGB[0];
+			debugimg[(u + v*width)*3 + 1] = borderRGB[1];
+			debugimg[(u + v*width)*3 + 2] = borderRGB[2];
+		}
+		for (int v = Rs[it].lv, u; v <= Rs[it].rv; v++) {
+			u = Rs[it].lu;
+			debugimg[(u + v*width)*3 + 0] = borderRGB[0];
+			debugimg[(u + v*width)*3 + 1] = borderRGB[1];
+			debugimg[(u + v*width)*3 + 2] = borderRGB[2];
+			u = Rs[it].ru;
+			debugimg[(u + v*width)*3 + 0] = borderRGB[0];
+			debugimg[(u + v*width)*3 + 1] = borderRGB[1];
+			debugimg[(u + v*width)*3 + 2] = borderRGB[2];
+		}
+		Region region = Rs[it];
+		float cv = 0.f, cu = 0.f, sumf = 0;
+
+#define VERT(u, v) ((u)+(v)*width)
+		for (int v = region.lv; v <= region.rv; v++) {
+			for (int u = region.lu; u <= region.ru; u++) {
+				float f = img[VERT(u, v)];
+				cv += v * f, cu += u * f, sumf += f;
+			}
+		}
+#undef VERT
+		cu /= sumf, cv /= sumf;
+		int ccu = Float2Int(cu), ccv = Float2Int(cv);
+		for (int p = -4; p <= 4; p++) {
+			for (int q = -4; q <= 4; q++) {
+				if (ccu + q >= 0 && ccu + q < width && ccv + p >= 0 && ccv + p < height) {
+					int u = ccu + q, v = ccv + p;
+					debugimg[(u + v*width)*3 + 0] = ptLightRGB[0];
+					debugimg[(u + v*width)*3 + 1] = ptLightRGB[1];
+					debugimg[(u + v*width)*3 + 2] = ptLightRGB[2];
+				}
+			}
+		}
 		printf("Region %d: %d %d %d %d %f\n", it, Rs[it].lu, Rs[it].lv, Rs[it].ru, Rs[it].rv, Rs[it].getEnergy(sumTable, width, height));
 	}
 	fflush(stdin);
+	WriteImage("texmaptest-mediancut.png", debugimg, NULL, width,
+		height, 0, 0, 0, 0);
+#endif
 	
     delete[] texels;
 
@@ -361,7 +430,6 @@ float MedianCutEnvironmentLight::Pdf(const Point &, const Vector &w) const {
     PBRT_INFINITE_LIGHT_FINISHED_PDF();
     return p;
 }
-
 
 Spectrum MedianCutEnvironmentLight::Sample_L(const Scene *scene,
         const LightSample &ls, float u1, float u2, float time,
