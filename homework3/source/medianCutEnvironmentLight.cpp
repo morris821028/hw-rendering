@@ -100,7 +100,7 @@ MedianCutEnvironmentLight::MedianCutEnvironmentLight(const Transform &light2worl
     // Initialize sampling PDFs for environment light
 
 	// Remember to scale the light intensity with the areas (solid angles)
-	float solidAngleScale = ((2.f * M_PI) / (width)) * ((M_PI) / (height));
+	float solidAngleScale = ((2.f * M_PI) / (width - 1)) * ((M_PI) / (height - 1));
 	for (int v = 0; v < height; v++) {
         float sinTheta = sinf(M_PI * float(v+.5f)/float(height));
 		for (int u = 0; u < width; u++)
@@ -119,9 +119,6 @@ MedianCutEnvironmentLight::MedianCutEnvironmentLight(const Transform &light2worl
             img[u+v*width] *= sinTheta;
         }
     }
-
-
-
 
 	float *sumTable = new float[width*height];
 	float *columnSum = new float[width];
@@ -228,7 +225,7 @@ MedianCutEnvironmentLight::MedianCutEnvironmentLight(const Transform &light2worl
 			}
 		}
 #undef VERT
-		this->VLRAs[it] = VLRA(cu / sumf * v_scale, cv / sumf * u_scale, spectrum);
+		this->VLRAs[it] = VLRA(cu / sumf * u_scale, cv / sumf * v_scale, spectrum);
 	}
 #ifdef DEBUG
 	/*
@@ -401,7 +398,7 @@ Spectrum MedianCutEnvironmentLight::Sample_L(const Point &p, float pEpsilon,
 	VLRA vlra = VLRAs[Floor2Int(ls.uComponent * VLRAs.size())];
 	
     // Convert infinite light sample point to direction
-    float theta = vlra.u * M_PI, phi = vlra.v * 2.f * M_PI;
+    float theta = vlra.v * M_PI, phi = vlra.u * 2.f * M_PI;
     float costheta = cosf(theta), sintheta = sinf(theta);
     float sinphi = sinf(phi), cosphi = cosf(phi);
     *wi = LightToWorld(Vector(sintheta * cosphi, sintheta * sinphi,
@@ -434,6 +431,7 @@ float MedianCutEnvironmentLight::Pdf(const Point &, const Vector &w) const {
 Spectrum MedianCutEnvironmentLight::Sample_L(const Scene *scene,
         const LightSample &ls, float u1, float u2, float time,
         Ray *ray, Normal *Ns, float *pdf) const {
+	/* not use in this homework */
     PBRT_INFINITE_LIGHT_STARTED_SAMPLE();
     // Compute direction for infinite light sample ray
 
