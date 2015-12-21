@@ -85,42 +85,74 @@ CSIE5098 - HW3
 
 <h3> 測試比對展示櫃 </h3>
 
-<h4> Reference / Median Cut Algorithm (envlight 256 samples, center 1)</h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="50%">
+      <div class="image-slider">
+        <div>
+          <img src="images/ref/envlight-256.jpg" />
+        </div>
+          <img src="images/expr/center1/envlight-256-my.jpg" />
+      </div>
+      <p>Reference / Median Cut Algorithm (envlight 256 samples, center 1)<p>
+    </td>
+    <td width="50%">
+      <div class="image-slider">
+        <div>
+          <img src="images/ref/envlight-256.jpg" />
+        </div>
+          <img src="images/expr/center2/envlight-256-my.jpg" />
+      </div>
+      <p>Reference / Median Cut Algorithm (envlight 256 samples, center 2)<p>
+    </td>
+  </tr>
+</table>
 
-<div class="image-slider">
-  <div>
-    <img src="images/ref/envlight-256.jpg" />
-  </div>
-    <img src="images/expr/center1/envlight-256-my.jpg" />
-</div>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="50%">
+      <div class="image-slider">
+        <div>
+          <img src="images/ref/envlight-256_tonemapped.jpg" />
+        </div>
+          <img src="images/expr/center1/envlight-256-my_tonemapped.jpg" />
+      </div>
+      <p>Reference / Median Cut Algorithm (envlight 256 samples, center 1 tone mapping)<p>
+    </td>
+    <td width="50%">
+      <div class="image-slider">
+        <div>
+          <img src="images/ref/envlight-256_tonemapped.jpg" />
+        </div>
+          <img src="images/expr/center2/envlight-256-my_tonemapped.jpg" />
+      </div>
+      <p>Reference / Median Cut Algorithm (envlight 256 samples, center 2, tone mapping)<p>
+    </td>
+  </tr>
+</table>
 
-<h4> Reference / Median Cut Algorithm (envlight 256 samples, center 2)</h4>
-
-<div class="image-slider">
-  <div>
-    <img src="images/ref/envlight-256.jpg" />
-  </div>
-    <img src="images/expr/center2/envlight-256-my.jpg" />
-</div>
-
-<h4> Reference / Median Cut Algorithm (envlight-new 256 samples, center 1)</h4>
-
-<div class="image-slider">
-  <div>
-    <img src="images/ref/envlight-new-256.jpg" />
-  </div>
-    <img src="images/expr/center1/envlight-new-256-my.jpg" />
-</div>
-
-<h4> Reference / Median Cut Algorithm (envlight-new 256 samples, center 2)</h4>
-
-<div class="image-slider">
-  <div>
-    <img src="images/ref/envlight-new-256.jpg" />
-  </div>
-    <img src="images/expr/center2/envlight-new-256-my.jpg" />
-</div>
-
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="50%">
+      <div class="image-slider">
+        <div>
+          <img src="images/ref/envlight-new-256.jpg" />
+        </div>
+          <img src="images/expr/center1/envlight-new-256-my.jpg" />
+      </div>
+      <p>Reference / Median Cut Algorithm (envlight-new 256 samples, center 1)<p>
+    </td>
+    <td width="50%">
+      <div class="image-slider">
+        <div>
+          <img src="images/ref/envlight-new-256.jpg" />
+        </div>
+          <img src="images/expr/center2/envlight-new-256-my.jpg" />
+      </div>
+      <p>Reference / Median Cut Algorithm (envlight-new 256 samples, center 2)<p>
+    </td>
+  </tr>
+</table>
 
 <h3> 測試結果 </h3>
 
@@ -129,12 +161,21 @@ CSIE5098 - HW3
   <tr>
     <td width="25%"><img border="0" src="images/ref/envlight-4.jpg">
       <p><font color="#008000"><tt>Infinite Area Light</tt></font><p>
+      <ul>
+        <li><font color="#008000">Processing Time: 7.044 seconds</font></li>
+      </ul>
     </td>
     <td width="25%"><img border="0" src="images/expr/center1/envlight-4-my.jpg">
       <p><font color="#008000"><tt>My Implementation 1</tt></font><p>
+      <ul>
+        <li><font color="#008000">Processing Time: 5.970 seconds</font></li>
+      </ul>
     </td>
     <td width="25%"><img border="0" src="images/expr/center2/envlight-4-my.jpg">
       <p><font color="#008000"><tt>My Implementation 2</tt></font><p>
+      <ul>
+        <li><font color="#008000">Processing Time: 5.995 seconds</font></li>
+      </ul>
     </td>
   </tr>
 </table>
@@ -144,12 +185,21 @@ CSIE5098 - HW3
   <tr>
     <td width="25%"><img border="0" src="images/ref/envlight-16.jpg">
       <p><font color="#008000"><tt>Infinite Area Light</tt></font><p>
+      <ul>
+        <li><font color="#008000">Processing Time: 11.570 seconds</font></li>
+      </ul>
     </td>
     <td width="25%"><img border="0" src="images/expr/center1/envlight-16-my.jpg">
       <p><font color="#008000"><tt>My Implementation 1</tt></font><p>
+      <ul>
+        <li><font color="#008000">Processing Time: 6.847 seconds</font></li>
+      </ul>
     </td>
     <td width="25%"><img border="0" src="images/expr/center2/envlight-16-my.jpg">
       <p><font color="#008000"><tt>My Implementation 2</tt></font><p>
+      <ul>
+        <li><font color="#008000">Processing Time: 10.487 seconds</font></li>
+      </ul>
     </td>
   </tr>
 </table>
@@ -159,12 +209,21 @@ CSIE5098 - HW3
   <tr>
     <td width="25%"><img border="0" src="images/ref/envlight-64.jpg">
       <p><font color="#008000"><tt>Infinite Area Light</tt></font><p>
+      <ul>
+        <li><font color="#008000">Processing Time: 30.650 seconds</font></li>
+      </ul>
     </td>
     <td width="25%"><img border="0" src="images/expr/center1/envlight-64-my.jpg">
       <p><font color="#008000"><tt>My Implementation 1</tt></font><p>
+      <ul>
+        <li><font color="#008000">Processing Time: 10.487 seconds</font></li>
+      </ul>
     </td>
     <td width="25%"><img border="0" src="images/expr/center2/envlight-64-my.jpg">
       <p><font color="#008000"><tt>My Implementation 2</tt></font><p>
+      <ul>
+        <li><font color="#008000">Processing Time: 10.496 seconds</font></li>
+      </ul>
     </td>
   </tr>
 </table>
@@ -174,12 +233,21 @@ CSIE5098 - HW3
   <tr>
     <td width="25%"><img border="0" src="images/ref/envlight-256.jpg">
       <p><font color="#008000"><tt>Infinite Area Light</tt></font><p>
+      <ul>
+        <li><font color="#008000">Processing Time: 106.768 seconds</font></li>
+      </ul>
     </td>
     <td width="25%"><img border="0" src="images/expr/center1/envlight-256-my.jpg">
       <p><font color="#008000"><tt>My Implementation 1</tt></font><p>
+      <ul>
+        <li><font color="#008000">Processing Time: 25.756 seconds</font></li>
+      </ul>
     </td>
     <td width="25%"><img border="0" src="images/expr/center2/envlight-256-my.jpg">
       <p><font color="#008000"><tt>My Implementation 2</tt></font><p>
+      <ul>
+        <li><font color="#008000">Processing Time: 27.283 seconds</font></li>
+      </ul>
     </td>
   </tr>
 </table>
@@ -189,12 +257,21 @@ CSIE5098 - HW3
   <tr>
     <td width="25%"><img border="0" src="images/ref/envlight-new-4.jpg">
       <p><font color="#008000"><tt>Infinite Area Light</tt></font><p>
+      <ul>
+        <li><font color="#008000">Processing Time: 9.343 seconds</font></li>
+      </ul>
     </td>
     <td width="25%"><img border="0" src="images/expr/center1/envlight-new-4-my.jpg">
       <p><font color="#008000"><tt>My Implementation 1</tt></font><p>
+      <ul>
+        <li><font color="#008000">Processing Time: 11.415 seconds</font></li>
+      </ul>
     </td>
     <td width="25%"><img border="0" src="images/expr/center2/envlight-new-4-my.jpg">
       <p><font color="#008000"><tt>My Implementation 2</tt></font><p>
+      <ul>
+        <li><font color="#008000">Processing Time: 11.390 seconds</font></li>
+      </ul>
     </td>
   </tr>
 </table>
@@ -204,12 +281,21 @@ CSIE5098 - HW3
   <tr>
     <td width="25%"><img border="0" src="images/ref/envlight-new-16.jpg">
       <p><font color="#008000"><tt>Infinite Area Light</tt></font><p>
+      <ul>
+        <li><font color="#008000">Processing Time: 14.695 seconds</font></li>
+      </ul>
     </td>
     <td width="25%"><img border="0" src="images/expr/center1/envlight-new-16-my.jpg">
       <p><font color="#008000"><tt>My Implementation 1</tt></font><p>
+      <ul>
+        <li><font color="#008000">Processing Time: 12.682 seconds</font></li>
+      </ul>
     </td>
     <td width="25%"><img border="0" src="images/expr/center2/envlight-new-16-my.jpg">
       <p><font color="#008000"><tt>My Implementation 2</tt></font><p>
+      <ul>
+        <li><font color="#008000">Processing Time: 12.640 seconds</font></li>
+      </ul>
     </td>
   </tr>
 </table>
@@ -219,12 +305,21 @@ CSIE5098 - HW3
   <tr>
     <td width="25%"><img border="0" src="images/ref/envlight-new-64.jpg">
       <p><font color="#008000"><tt>Infinite Area Light</tt></font><p>
+      <ul>
+        <li><font color="#008000">Processing Time: 35.954 seconds</font></li>
+      </ul>
     </td>
     <td width="25%"><img border="0" src="images/expr/center1/envlight-new-64-my.jpg">
       <p><font color="#008000"><tt>My Implementation 1</tt></font><p>
+      <ul>
+        <li><font color="#008000">Processing Time: 17.984 seconds</font></li>
+      </ul>
     </td>
     <td width="25%"><img border="0" src="images/expr/center2/envlight-new-64-my.jpg">
       <p><font color="#008000"><tt>My Implementation 2</tt></font><p>
+      <ul>
+        <li><font color="#008000">Processing Time: 17.944 seconds</font></li>
+      </ul>
     </td>
   </tr>
 </table>
@@ -234,12 +329,21 @@ CSIE5098 - HW3
   <tr>
     <td width="25%"><img border="0" src="images/ref/envlight-new-256.jpg">
       <p><font color="#008000"><tt>Infinite Area Light</tt></font><p>
+      <ul>
+        <li><font color="#008000">Processing Time: 121.204 seconds</font></li>
+      </ul>
     </td>
     <td width="25%"><img border="0" src="images/expr/center1/envlight-new-256-my.jpg">
       <p><font color="#008000"><tt>My Implementation 1</tt></font><p>
+      <ul>
+        <li><font color="#008000">Processing Time: 39.614 seconds</font></li>
+      </ul>
     </td>
     <td width="25%"><img border="0" src="images/expr/center2/envlight-new-256-my.jpg">
       <p><font color="#008000"><tt>My Implementation 2</tt></font><p>
+      <ul>
+        <li><font color="#008000">Processing Time: 39.573 seconds</font></li>
+      </ul>
     </td>
   </tr>
 </table>

@@ -109,5 +109,5 @@ blockquote {
 
 .image-slider img {
   user-select: none;
-  max-width: 960px;
+  max-height: 480px;
 }
