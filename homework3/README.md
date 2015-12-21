@@ -43,5 +43,23 @@ float getEnergy(float sumTable[], int width, int height) {
 
 ### 重心計算 ####
 
+### Centroid Formula 1 ###
+ 
+一般重心計算採用以下公式：
 
+$$X_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L_{(x, y)} \; x}{\sum^{}_{(x, y) \in \mathit{region}} L_{(x, y)}} \\
+Y_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L_{(x, y)} \; y}{\sum^{}_{(x, y) \in \mathit{region}} L_{(x, y)}}
+$$
+
+經由 Median-Cut Algorithm 在 Texmap 1 運行後，代表的點光源明顯地偏離亮區，因此為了讓代表的點光源更靠近亮區，我們將其重心公式修改成 Centroid Formula 2。
+
+### Centroid Formula 1 ###
+ 
+若以 $\mathit{Energy} \propto L^2_{(x, y)}$，能量與亮度二次成正比，則計算出的重心會更靠近亮區。
+
+$$X_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)} \; x}{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)}} \\
+Y_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)} \; y}{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)}}
+$$
+
+比較結果如下：
 
