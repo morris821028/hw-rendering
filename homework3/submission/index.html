@@ -6,7 +6,15 @@ CSIE5098 - HW3
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
     <link rel="stylesheet" type="text/css" href="simple.css">
+
+    <link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/morris.js/0.5.1/morris.css">
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.0/jquery.min.js"></script>
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/raphael/2.1.0/raphael-min.js"></script>
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/morris.js/0.5.1/morris.min.js"></script>
 </head>
+
+
+
 <BODY TEXT="#000000" BGCOLOR="#FFFFFF" LINK="#0000EE" VLINK="#551A8B" ALINK="#FF0000">
 
 <h2>Homework 3 - Environment Lights</h2>
@@ -14,9 +22,10 @@ CSIE5098 - HW3
 <p>CSIE5098 - Digital Image Synthesis</p>
 
 <p><font color="#008000">Shiang-Yun Yang 楊翔雲</font></p>
-<p>Date submitted: <font color="#008000">26 Nov 2015</font></p>
 
-<p>Code emailed: <font color="#008000">26 Nov 2015</font></p>
+<p>Date submitted: <font color="#008000">21 Dec 2015</font></p>
+
+<p>Code emailed: <font color="#008000">21 Dec 2015</font></p>
 
 
 <h3 id="toc_1">Description of implementation approach and comments</h3>
@@ -33,6 +42,50 @@ CSIE5098 - HW3
 <h4 id="toc_2">Median Cut Algorithm</h4>
 
 <p>根據論文 <a href="http://dl.acm.org/citation.cfm?id=1187029">P. Debevec, A Median Cut Algorithm for Light Probe Sampling, SIGGRAPH 2006 Sketches and Applications.</a> 中，預期要將 <code>pbrt/lights/infinite.cpp</code> 中的 <code>class InfiniteAreaLight</code> 用數個點光源取代 Infinite Area Light 的寫法，提升均勻取樣的效能，而 Median Cut Algorithm 在預處理非常快，根據用多少量的點光源將影響品質，若在品質不用太好的 rendering 環境下，這是一個不錯的降質提升速度的方案。</p>
+
+
+<div style="padding: 10px;">
+  <div id="run-result" style="height: 360px;">
+  </div>
+</div>
+
+<div style="padding: 10px;">
+  <div id="run-result-new" style="height: 360px;">
+  </div>
+</div>
+
+<script>
+new Morris.Line({
+  element: 'run-result',
+  data: [
+    { y: '4', a: 7.044, b: 5.970, c: 5.995 },
+    { y: '16', a: 11.570,  b: 6.847, c: 7.007 },
+    { y: '64', a: 30.650,  b: 10.487, c: 10.496 },
+    { y: '256', a: 106.768,  b: 25.756, c: 27.283 }
+  ],
+  parseTime: false,
+  xkey: 'y',
+  ykeys: ['a', 'b', 'c'],
+  ymin: 0.0,
+  ymax: 150.0,
+  labels: ['InfiniteAreaLight', 'Median-Cut Centroid 1', 'Median-Cut Centroid 2']
+});
+new Morris.Line({
+  element: 'run-result-new',
+  data: [
+    { y: '4', a: 9.343, b: 11.415, c: 11.390 },
+    { y: '16', a: 14.695,  b: 12.682, c: 12.640 },
+    { y: '64', a: 35.954,  b: 17.984, c: 17.944 },
+    { y: '256', a: 121.204,  b: 39.614, c: 39.573 }
+  ],
+  parseTime: false,
+  xkey: 'y',
+  ykeys: ['a', 'b', 'c'],
+  ymin: 0.0,
+  ymax: 150.0,
+  labels: ['InfiniteAreaLight', 'Median-Cut Centroid 1', 'Median-Cut Centroid 2']
+});
+</script>
 
 <p>算法的步驟如下：</p>
 
@@ -63,9 +116,29 @@ CSIE5098 - HW3
 
 <h3 id="toc_3">重心計算</h3>
 
-<p>\[\bar{X} = \sum^{}_{(x, y) \in \mathit{region}} L_{(x, y)} x\]</p>
+<h3 id="toc_4">Centroid Formula 1</h3>
+
+<p>一般重心計算採用以下公式：</p>
+
+<p>\[X_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L_{(x, y)} \; x}{\sum^{}_{(x, y) \in \mathit{region}} L_{(x, y)}} \\
+Y_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L_{(x, y)} \; y}{\sum^{}_{(x, y) \in \mathit{region}} L_{(x, y)}}
+\]</p>
+
+<p>經由 Median-Cut Algorithm 在 Texmap 1 運行後，代表的點光源明顯地偏離亮區，因此為了讓代表的點光源更靠近亮區，我們將其重心公式修改成 Centroid Formula 2。</p>
+
+<h3 id="toc_5">Centroid Formula 1</h3>
+
+<p>若以 \(\mathit{Energy} \propto L^2_{(x, y)}\)，能量與亮度二次成正比，則計算出的重心會更靠近亮區。</p>
+
+<p>\[X_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)} \; x}{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)}} \\
+Y_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)} \; y}{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)}}
+\]</p>
+
+<p>比較結果如下：</p>
 
 <h4> Texmap 1 </h4>
+
+<p>拖曳圖片下方的白色鍵頭，左圖為 Centroid Formula 1 / 右圖為 Centroid Formula 2 </p>
 
 <div class="image-slider">
   <div>
@@ -76,6 +149,8 @@ CSIE5098 - HW3
 
 <h4> Texmap 2 </h4>
 
+<p>拖曳圖片下方的白色鍵頭，左圖為 Centroid Formula 1 / 右圖為 Centroid Formula 2，由於圖片尺寸稍大需要放大觀看。</p>
+
 <div class="image-slider">
   <div>
     <img src="images/expr/center1/texmaptest-new-mediancut.png" />
@@ -84,6 +159,8 @@ CSIE5098 - HW3
 </div>
 
 <h3> 測試比對展示櫃 </h3>
+
+<p>相較於原生寫 Infinite Area Light，用 64 個點光源明顯地造成在車頂過亮</p>
 
 <table border="0" width="100%" cellspacing="0" cellpadding="0">
   <tr>
@@ -94,7 +171,7 @@ CSIE5098 - HW3
         </div>
           <img src="images/expr/center1/envlight-256-my.jpg" />
       </div>
-      <p>Reference / Median Cut Algorithm (envlight 256 samples, center 1)<p>
+      <p>Reference / Median Cut Algorithm (envlight 256 samples, Centroid Formula 1)<p>
     </td>
     <td width="50%">
       <div class="image-slider">
@@ -103,10 +180,12 @@ CSIE5098 - HW3
         </div>
           <img src="images/expr/center2/envlight-256-my.jpg" />
       </div>
-      <p>Reference / Median Cut Algorithm (envlight 256 samples, center 2)<p>
+      <p>Reference / Median Cut Algorithm (envlight 256 samples, Centroid Formula 2)<p>
     </td>
   </tr>
 </table>
+
+<p>利用 Photomatrix 進行 tone mapped 後，從地板影子看出 Centroid Formula 1 相較於 Centroid Formula 2 所選的點光源比較不集中，相當零散。</p>
 
 <table border="0" width="100%" cellspacing="0" cellpadding="0">
   <tr>
@@ -117,7 +196,7 @@ CSIE5098 - HW3
         </div>
           <img src="images/expr/center1/envlight-256-my_tonemapped.jpg" />
       </div>
-      <p>Reference / Median Cut Algorithm (envlight 256 samples, center 1 tone mapping)<p>
+      <p>Reference / Median Cut Algorithm (envlight 256 samples, Centroid Formula 1, tone mapping)<p>
     </td>
     <td width="50%">
       <div class="image-slider">
@@ -126,10 +205,12 @@ CSIE5098 - HW3
         </div>
           <img src="images/expr/center2/envlight-256-my_tonemapped.jpg" />
       </div>
-      <p>Reference / Median Cut Algorithm (envlight 256 samples, center 2, tone mapping)<p>
+      <p>Reference / Median Cut Algorithm (envlight 256 samples, Centroid Formula 2, tone mapping)<p>
     </td>
   </tr>
 </table>
+
+<p>Centroid Formula 1 和 Centroid Formula 2 最大的差異在於車尾燈的光影，Centroid Formula 2 算出來較接近原圖。</p>
 
 <table border="0" width="100%" cellspacing="0" cellpadding="0">
   <tr>
@@ -140,7 +221,7 @@ CSIE5098 - HW3
         </div>
           <img src="images/expr/center1/envlight-new-256-my.jpg" />
       </div>
-      <p>Reference / Median Cut Algorithm (envlight-new 256 samples, center 1)<p>
+      <p>Reference / Median Cut Algorithm (envlight-new 256 samples, Centroid Formula 1)<p>
     </td>
     <td width="50%">
       <div class="image-slider">
@@ -149,7 +230,7 @@ CSIE5098 - HW3
         </div>
           <img src="images/expr/center2/envlight-new-256-my.jpg" />
       </div>
-      <p>Reference / Median Cut Algorithm (envlight-new 256 samples, center 2)<p>
+      <p>Reference / Median Cut Algorithm (envlight-new 256 samples, cCentroid Formula 2)<p>
     </td>
   </tr>
 </table>
