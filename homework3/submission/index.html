@@ -1,0 +1,263 @@
+<html>
+<head>
+<title>
+CSIE5098 - HW3
+</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+    <link rel="stylesheet" type="text/css" href="simple.css">
+</head>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF" LINK="#0000EE" VLINK="#551A8B" ALINK="#FF0000">
+
+<h2>Homework 3 - Environment Lights</h2>
+
+<p>CSIE5098 - Digital Image Synthesis</p>
+
+<p><font color="#008000">Shiang-Yun Yang 楊翔雲</font></p>
+<p>Date submitted: <font color="#008000">26 Nov 2015</font></p>
+
+<p>Code emailed: <font color="#008000">26 Nov 2015</font></p>
+
+
+<h3 id="toc_1">Description of implementation approach and comments</h3>
+
+<ul>
+<li>Windows 7 64-bits</li>
+<li>Comipler &amp; IDE: Microsoft Visual Studio 2012</li>
+<li>Image View Software: IrfanView</li>
+<li>Intel(R) Core(TM) i5-3470 CPU @ 3.20GHz 3.20GHz</li>
+<li>Intel(R) HD Graphics </li>
+<li>RAM 4.00 GB</li>
+</ul>
+
+<h4 id="toc_2">Median Cut Algorithm</h4>
+
+<p>根據論文 <a href="http://dl.acm.org/citation.cfm?id=1187029">P. Debevec, A Median Cut Algorithm for Light Probe Sampling, SIGGRAPH 2006 Sketches and Applications.</a> 中，預期要將 <code>pbrt/lights/infinite.cpp</code> 中的 <code>class InfiniteAreaLight</code> 用數個點光源取代 Infinite Area Light 的寫法，提升均勻取樣的效能，而 Median Cut Algorithm 在預處理非常快，根據用多少量的點光源將影響品質，若在品質不用太好的 rendering 環境下，這是一個不錯的降質提升速度的方案。</p>
+
+<p>算法的步驟如下：</p>
+
+<ol>
+<li>將入射光場影像 (light probe image) 切成好幾個矩形區域，每一個區域將取用一個點光源代替。將入射光場影像轉換成灰階亮度 \(Y\)，如論文中所提及的方案 \(Y = 0.2125 R + 0.7154 G + 0.0721 B\) 這類型的轉換。</li>
+<li>對於每一個區域將會根據最長維度切割成兩個子區域。切割成兩個子區域的亮度總和越接近越好。</li>
+<li>若切割區域數量不到目標的數量，則重複步驟 2。</li>
+<li>最後將每一個區域算出代表的點光源，並加總區域內的亮度和，隨後取樣根據亮度和作為取樣根據 (在 <code>Spectrum MedianCutEnvironmentLight::Sample_L(const Point&amp;, float, const LightSample&amp;, float, Vector&amp;, float*, VisibilityTester*)</code> 中使用)，用每一個區域內部的 pixel 位置和亮度計算重心作為代表的點光源。</li>
+</ol>
+
+<p>算法類似於 k-d Tree，但特別的是每次選擇區域維度最長的那一段進行切割，而不是像 k-d Tree 則是採用輪替維度進行。</p>
+
+<p>Median Cut Algorithm 需要 \(\mathcal{O}(HW)\) 時間 \(\mathcal{O}(HW)\) 空間來預處理亮度資訊。若要切割成 \(N\) 個區域，需要 \(\mathcal{O}(\log N)\) 次迭代，每一次迭代增加兩倍區域數量。將一個區域切割時，針對維度最長的那一軸二分搜尋，二分搜尋計算其中一個區域的亮度和是否是整個區域亮度的一半，由於預處理完成的表格，可以在 \(\mathcal{O}(1)\) 時間內計算任意平行兩軸的矩形內部元素總和。</p>
+
+<p>維護 <code>sumTable[i][j]</code> 計算左上角 \((0, 0)\) 右下角 \((i, j)\) 的亮度和，計算任意平行兩軸矩形內部和只需要 \(\mathcal{O}(1)\) 時間。</p>
+
+<pre class="line-numbers"><code class="language-c">float getEnergy(float sumTable[], int width, int height) {
+    float e = sumTable[VERT(ru, rv)];
+    if (lu) e -= sumTable[VERT(lu-1, rv)];
+    if (lv) e -= sumTable[VERT(ru, lv-1)];
+    if (lu &amp;&amp; lv)   e += sumTable[VERT(lu-1, lv-1)];
+    return e;
+}</code></pre>
+
+<blockquote>
+<p>另一種方案，可以從 pbrt 原生的 <code>class MIPMap</code> 取代上述寫法，<code>MIPMap</code> 的寫法採用分層式的架構，每一層將原圖長寬各縮小一半。計算某矩形元素總和時，藉由兩層的總和估計進行內插。理論上，這種寫法雖然不夠精準，但提供很好的快取優勢。</p>
+</blockquote>
+
+<h3 id="toc_3">重心計算</h3>
+
+<p>\[\bar{X} = \sum^{}_{(x, y) \in \mathit{region}} L_{(x, y)} x\]</p>
+
+<h4> Texmap 1 </h4>
+
+<div class="image-slider">
+  <div>
+    <img src="images/expr/center1/texmaptest-mediancut.png" />
+  </div>
+    <img src="images/expr/center2/texmaptest-mediancut.png" />
+</div>
+
+<h4> Texmap 2 </h4>
+
+<div class="image-slider">
+  <div>
+    <img src="images/expr/center1/texmaptest-new-mediancut.png" />
+  </div>
+    <img src="images/expr/center2/texmaptest-new-mediancut.png" />
+</div>
+
+<h3> 測試比對展示櫃 </h3>
+
+<h4> Reference / Median Cut Algorithm (envlight 256 samples, center 1)</h4>
+
+<div class="image-slider">
+  <div>
+    <img src="images/ref/envlight-256.jpg" />
+  </div>
+    <img src="images/expr/center1/envlight-256-my.jpg" />
+</div>
+
+<h4> Reference / Median Cut Algorithm (envlight 256 samples, center 2)</h4>
+
+<div class="image-slider">
+  <div>
+    <img src="images/ref/envlight-256.jpg" />
+  </div>
+    <img src="images/expr/center2/envlight-256-my.jpg" />
+</div>
+
+<h4> Reference / Median Cut Algorithm (envlight-new 256 samples, center 1)</h4>
+
+<div class="image-slider">
+  <div>
+    <img src="images/ref/envlight-new-256.jpg" />
+  </div>
+    <img src="images/expr/center1/envlight-new-256-my.jpg" />
+</div>
+
+<h4> Reference / Median Cut Algorithm (envlight-new 256 samples, center 2)</h4>
+
+<div class="image-slider">
+  <div>
+    <img src="images/ref/envlight-new-256.jpg" />
+  </div>
+    <img src="images/expr/center2/envlight-new-256-my.jpg" />
+</div>
+
+
+<h3> 測試結果 </h3>
+
+<h4> Envlight 4 samples </h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="25%"><img border="0" src="images/ref/envlight-4.jpg">
+      <p><font color="#008000"><tt>Infinite Area Light</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/center1/envlight-4-my.jpg">
+      <p><font color="#008000"><tt>My Implementation 1</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/center2/envlight-4-my.jpg">
+      <p><font color="#008000"><tt>My Implementation 2</tt></font><p>
+    </td>
+  </tr>
+</table>
+
+<h4> Envlight 16 samples </h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="25%"><img border="0" src="images/ref/envlight-16.jpg">
+      <p><font color="#008000"><tt>Infinite Area Light</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/center1/envlight-16-my.jpg">
+      <p><font color="#008000"><tt>My Implementation 1</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/center2/envlight-16-my.jpg">
+      <p><font color="#008000"><tt>My Implementation 2</tt></font><p>
+    </td>
+  </tr>
+</table>
+
+<h4> Envlight 64 samples </h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="25%"><img border="0" src="images/ref/envlight-64.jpg">
+      <p><font color="#008000"><tt>Infinite Area Light</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/center1/envlight-64-my.jpg">
+      <p><font color="#008000"><tt>My Implementation 1</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/center2/envlight-64-my.jpg">
+      <p><font color="#008000"><tt>My Implementation 2</tt></font><p>
+    </td>
+  </tr>
+</table>
+
+<h4> Envlight 256 samples </h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="25%"><img border="0" src="images/ref/envlight-256.jpg">
+      <p><font color="#008000"><tt>Infinite Area Light</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/center1/envlight-256-my.jpg">
+      <p><font color="#008000"><tt>My Implementation 1</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/center2/envlight-256-my.jpg">
+      <p><font color="#008000"><tt>My Implementation 2</tt></font><p>
+    </td>
+  </tr>
+</table>
+
+<h4> Envlight New 4 samples </h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="25%"><img border="0" src="images/ref/envlight-new-4.jpg">
+      <p><font color="#008000"><tt>Infinite Area Light</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/center1/envlight-new-4-my.jpg">
+      <p><font color="#008000"><tt>My Implementation 1</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/center2/envlight-new-4-my.jpg">
+      <p><font color="#008000"><tt>My Implementation 2</tt></font><p>
+    </td>
+  </tr>
+</table>
+
+<h4> Envlight New 16 samples </h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="25%"><img border="0" src="images/ref/envlight-new-16.jpg">
+      <p><font color="#008000"><tt>Infinite Area Light</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/center1/envlight-new-16-my.jpg">
+      <p><font color="#008000"><tt>My Implementation 1</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/center2/envlight-new-16-my.jpg">
+      <p><font color="#008000"><tt>My Implementation 2</tt></font><p>
+    </td>
+  </tr>
+</table>
+
+<h4> Envlight New 64 samples </h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="25%"><img border="0" src="images/ref/envlight-new-64.jpg">
+      <p><font color="#008000"><tt>Infinite Area Light</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/center1/envlight-new-64-my.jpg">
+      <p><font color="#008000"><tt>My Implementation 1</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/center2/envlight-new-64-my.jpg">
+      <p><font color="#008000"><tt>My Implementation 2</tt></font><p>
+    </td>
+  </tr>
+</table>
+
+<h4> Envlight New 256 samples </h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="25%"><img border="0" src="images/ref/envlight-new-256.jpg">
+      <p><font color="#008000"><tt>Infinite Area Light</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/center1/envlight-new-256-my.jpg">
+      <p><font color="#008000"><tt>My Implementation 1</tt></font><p>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/center2/envlight-new-256-my.jpg">
+      <p><font color="#008000"><tt>My Implementation 2</tt></font><p>
+    </td>
+  </tr>
+</table>
+
+
+<script type="text/javascript">
+!function(){"undefined"!=typeof self&&self.Prism&&self.document&&Prism.hooks.add("complete",function(e){if(e.code){var t=e.element.parentNode,s=/\s*\bline-numbers\b\s*/;if(t&&/pre/i.test(t.nodeName)&&(s.test(t.className)||s.test(e.element.className))&&!e.element.querySelector(".line-numbers-rows")){s.test(e.element.className)&&(e.element.className=e.element.className.replace(s,"")),s.test(t.className)||(t.className+=" line-numbers");var n,a=e.code.match(/\n(?!$)/g),l=a?a.length+1:1,m=new Array(l+1);m=m.join("<span></span>"),n=document.createElement("span"),n.className="line-numbers-rows",n.innerHTML=m,t.hasAttribute("data-start")&&(t.style.counterReset="linenumber "+(parseInt(t.getAttribute("data-start"),10)-1)),e.element.appendChild(n)}}})}();
+</script>
+<script type="text/x-mathjax-config">
+if (typeof MathJaxListener !== 'undefined') {
+  MathJax.Hub.Register.StartupHook('End', function () {
+    MathJaxListener.invokeCallbackForKey_('End');
+  });
+}
+</script>
+<script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+</body>
+
+
+</html>
