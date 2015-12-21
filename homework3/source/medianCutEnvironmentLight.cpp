@@ -85,6 +85,7 @@ MedianCutEnvironmentLight::MedianCutEnvironmentLight(const Transform &light2worl
     }
 	
     radianceMap = new MIPMap<RGBSpectrum>(width, height, texels);
+
 #ifdef DEBUG
 	float *debugimg = new float[width * height * 3];
 	for (int v = 0; v < height; v++) {
@@ -97,6 +98,7 @@ MedianCutEnvironmentLight::MedianCutEnvironmentLight(const Transform &light2worl
 	printf("width %d height %d\n", width, height);
 	fflush(stdin);
 #endif
+
     // Initialize sampling PDFs for environment light
 
 	// Remember to scale the light intensity with the areas (solid angles)
@@ -135,16 +137,7 @@ MedianCutEnvironmentLight::MedianCutEnvironmentLight(const Transform &light2worl
 				sumTable[VERT(u, v)] = leftsum;
 		}
 	}
-#ifdef DEBUG
-	/*
-	for (int v = 0; v < height; v++) {
-		for (int u = 0; u < width; u++)
-			printf("%f ", sumTable[VERT(u, v)]);
-		puts("");
-	}
-	fflush(stdin);
-	*/
-#endif
+
 	struct Region {
 		int lu, lv, ru, rv;
 		Region(int lu = 0, int lv = 0, int ru = 0, int rv = 0): 
@@ -165,22 +158,19 @@ MedianCutEnvironmentLight::MedianCutEnvironmentLight(const Transform &light2worl
 	vector<Region> Rs;
 	Rs.push_back(Region(0, 0, width-1, height-1));
 
-	// A light probe image is subdivided into 64 equal energy regions
+	// A light probe image is subdivided into # equal energy regions
 	int partitions_regions = 64;
-	for (int it = 0; it < 8 && Rs.size() < partitions_regions; it ++) {
+	for (int it = 0; it < 6 && Rs.size() < partitions_regions; it ++) {
 		vector<Region> nextRs;
 		for (Region region : Rs) {
 			float half_energy = region.getEnergy(sumTable, width, height) * 0.5f;
 			int div_axis = region.getAxis();
-
-			// printf("Region %d: %d %d %d %d %f\n", it, region.lu, region.lv, region.ru, region.rv, region.getEnergy(sumTable, width, height));
-
+			
 			int lu = region.lu, lv = region.lv, ru = region.ru, rv = region.rv;
 			if (div_axis == 0) {
 				int l = lu, r = ru, mid, ret = lu;
 				while (l <= r) {
 					mid = (l + r)/2;
-					// printf("binary x %d %d %d %f\n", l, r, mid, Region(lu, lv, mid, rv).getEnergy(sumTable, width, height));
 					if (Region(lu, lv, mid, rv).getEnergy(sumTable, width, height) < half_energy)
 						l = mid + 1, ret = mid;
 					else
@@ -193,7 +183,6 @@ MedianCutEnvironmentLight::MedianCutEnvironmentLight(const Transform &light2worl
 				int l = lv, r = rv, mid, ret = lv;
 				while (l <= r) {
 					mid = (l + r)/2;
-					// printf("binary x %d %d %d %f\n", l, r, mid, Region(lu, lv, ru, mid).getEnergy(sumTable, width, height));
 					if (Region(lu, lv, ru, mid).getEnergy(sumTable, width, height) < half_energy)
 						l = mid + 1, ret = mid;
 					else
@@ -227,41 +216,28 @@ MedianCutEnvironmentLight::MedianCutEnvironmentLight(const Transform &light2worl
 #undef VERT
 		this->VLRAs[it] = VLRA(cu / sumf * u_scale, cv / sumf * v_scale, spectrum);
 	}
+
 #ifdef DEBUG
-	/*
-	float *debugimg = new float[width * height * 3];
-	for (int v = 0; v < height; v++) {
-		for (int u = 0; u < width; u++)
-			texels[u+v*width].ToRGB(debugimg+(u+v*width) * 3);
-	}
-	WriteImage("texmaptest.png", debugimg, NULL, width,
-                height, 0, 0, 0, 0);
-	*/
 	printf("Morris working ! ------------------------------------\n");
 	printf("width %d height %d\n", width, height);
 	fflush(stdin);
 	float borderRGB[3] = {powf(99.f/255.f, 2.2), powf(189.f/255.f, 2.2), powf(151.f/255.f, 2.2)};
-	float ptLightRGB[3] = {powf(217.f/255.f, 2.2), powf(68.f/255.f, 2.2), powf(54.f/255.f, 2.2)};
+	float ptLightRGB[3] = {powf(9.f/255.f, 2.2), powf(61.f/255.f, 2.2), powf(90.f/255.f, 2.2)};
+	float ptLightBorderRGB[3] = {powf(232.f/255.f, 2.2), powf(240.f/255.f, 2.2), powf(243.f/255.f, 2.2)};
+
+	// paint region border line
 	for (int it = 0; it < Rs.size(); it++) {
 		for (int u = Rs[it].lu, v; u <= Rs[it].ru; u++) {
 			v = Rs[it].lv;
-			debugimg[(u + v*width)*3 + 0] = borderRGB[0];
-			debugimg[(u + v*width)*3 + 1] = borderRGB[1];
-			debugimg[(u + v*width)*3 + 2] = borderRGB[2];
+			debugimg[(u + v*width)*3 + 0] = borderRGB[0], debugimg[(u + v*width)*3 + 1] = borderRGB[1], debugimg[(u + v*width)*3 + 2] = borderRGB[2];
 			v = Rs[it].rv;
-			debugimg[(u + v*width)*3 + 0] = borderRGB[0];
-			debugimg[(u + v*width)*3 + 1] = borderRGB[1];
-			debugimg[(u + v*width)*3 + 2] = borderRGB[2];
+			debugimg[(u + v*width)*3 + 0] = borderRGB[0], debugimg[(u + v*width)*3 + 1] = borderRGB[1],	debugimg[(u + v*width)*3 + 2] = borderRGB[2];
 		}
 		for (int v = Rs[it].lv, u; v <= Rs[it].rv; v++) {
 			u = Rs[it].lu;
-			debugimg[(u + v*width)*3 + 0] = borderRGB[0];
-			debugimg[(u + v*width)*3 + 1] = borderRGB[1];
-			debugimg[(u + v*width)*3 + 2] = borderRGB[2];
+			debugimg[(u + v*width)*3 + 0] = borderRGB[0], debugimg[(u + v*width)*3 + 1] = borderRGB[1], debugimg[(u + v*width)*3 + 2] = borderRGB[2];
 			u = Rs[it].ru;
-			debugimg[(u + v*width)*3 + 0] = borderRGB[0];
-			debugimg[(u + v*width)*3 + 1] = borderRGB[1];
-			debugimg[(u + v*width)*3 + 2] = borderRGB[2];
+			debugimg[(u + v*width)*3 + 0] = borderRGB[0], debugimg[(u + v*width)*3 + 1] = borderRGB[1],	debugimg[(u + v*width)*3 + 2] = borderRGB[2];
 		}
 		Region region = Rs[it];
 		float cv = 0.f, cu = 0.f, sumf = 0;
@@ -274,15 +250,17 @@ MedianCutEnvironmentLight::MedianCutEnvironmentLight(const Transform &light2worl
 			}
 		}
 #undef VERT
+		// paint point light position
 		cu /= sumf, cv /= sumf;
 		int ccu = Float2Int(cu), ccv = Float2Int(cv);
 		for (int p = -4; p <= 4; p++) {
 			for (int q = -4; q <= 4; q++) {
 				if (ccu + q >= 0 && ccu + q < width && ccv + p >= 0 && ccv + p < height) {
 					int u = ccu + q, v = ccv + p;
-					debugimg[(u + v*width)*3 + 0] = ptLightRGB[0];
-					debugimg[(u + v*width)*3 + 1] = ptLightRGB[1];
-					debugimg[(u + v*width)*3 + 2] = ptLightRGB[2];
+					debugimg[(u + v*width)*3 + 0] = ptLightRGB[0], debugimg[(u + v*width)*3 + 1] = ptLightRGB[1], debugimg[(u + v*width)*3 + 2] = ptLightRGB[2];
+					if (max(abs(p), abs(q)) == 4) {
+						debugimg[(u + v*width)*3 + 0] = ptLightBorderRGB[0], debugimg[(u + v*width)*3 + 1] = ptLightBorderRGB[1], debugimg[(u + v*width)*3 + 2] = ptLightBorderRGB[2];
+					}
 				}
 			}
 		}
@@ -431,6 +409,7 @@ float MedianCutEnvironmentLight::Pdf(const Point &, const Vector &w) const {
 Spectrum MedianCutEnvironmentLight::Sample_L(const Scene *scene,
         const LightSample &ls, float u1, float u2, float time,
         Ray *ray, Normal *Ns, float *pdf) const {
+	assert(false);
 	/* not use in this homework */
     PBRT_INFINITE_LIGHT_STARTED_SAMPLE();
     // Compute direction for infinite light sample ray
