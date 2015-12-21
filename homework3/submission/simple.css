@@ -84,7 +84,7 @@ blockquote {
    super buggy. See: http://dabblet.com/gist/ab432c3f6a8f672cd077 */
 .image-slider > div {
   position: absolute;
-  top: 0; bottom: 0; left: 0;
+  top: 0; bottom: 0; left: 0px;
   width: 25px;
   max-width: 100%;
   overflow: hidden;
@@ -97,10 +97,9 @@ blockquote {
 .image-slider > div:before {
   content: '';
   position: absolute;
-  right: 0; bottom: 0;
+  right: 0px; bottom: 0;
   width: 13px; height: 13px;
   padding: 5px;
-  background: linear-gradient(-45deg, white 50%, transparent 0);
   background-clip: content-box;
   cursor: ew-resize;
   -webkit-filter: drop-shadow(0 0 2px black);

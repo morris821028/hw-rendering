@@ -43,6 +43,7 @@ CSIE5098 - HW3
 
 <p>根據論文 <a href="http://dl.acm.org/citation.cfm?id=1187029">P. Debevec, A Median Cut Algorithm for Light Probe Sampling, SIGGRAPH 2006 Sketches and Applications.</a> 中，預期要將 <code>pbrt/lights/infinite.cpp</code> 中的 <code>class InfiniteAreaLight</code> 用數個點光源取代 Infinite Area Light 的寫法，提升均勻取樣的效能，而 Median Cut Algorithm 在預處理非常快，根據用多少量的點光源將影響品質，若在品質不用太好的 rendering 環境下，這是一個不錯的降質提升速度的方案。</p>
 
+<p>在 Median Cut Algorithm 取樣 64 equal-energy region 的速度差異比較</p>
 
 <div style="padding: 10px;">
   <div id="run-result" style="height: 360px;">
@@ -138,13 +139,13 @@ Y_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)} \; y}{\sum^{}_{(x,
 
 <h4> Texmap 1 </h4>
 
-<p>拖曳圖片下方的白色鍵頭，左圖為 Centroid Formula 1 / 右圖為 Centroid Formula 2 </p>
+<p>拖曳圖片下方的白色鍵頭，左圖為 Centroid Formula 1 / 右圖為 Centroid Formula 2 (建議使用 Firefox)</p>
 
 <div class="image-slider">
   <div>
-    <img src="images/expr/center1/texmaptest-mediancut.png" />
+    <img src="images/expr/64sub-cc1/texmaptest-mediancut.png" />
   </div>
-    <img src="images/expr/center2/texmaptest-mediancut.png" />
+    <img src="images/expr/64sub-cc2/texmaptest-mediancut.png" />
 </div>
 
 <h4> Texmap 2 </h4>
@@ -153,9 +154,9 @@ Y_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)} \; y}{\sum^{}_{(x,
 
 <div class="image-slider">
   <div>
-    <img src="images/expr/center1/texmaptest-new-mediancut.png" />
+    <img src="images/expr/64sub-cc1/texmaptest-new-mediancut.png" />
   </div>
-    <img src="images/expr/center2/texmaptest-new-mediancut.png" />
+    <img src="images/expr/64sub-cc2/texmaptest-new-mediancut.png" />
 </div>
 
 <h3> 測試比對展示櫃 </h3>
@@ -169,7 +170,7 @@ Y_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)} \; y}{\sum^{}_{(x,
         <div>
           <img src="images/ref/envlight-256.jpg" />
         </div>
-          <img src="images/expr/center1/envlight-256-my.jpg" />
+          <img src="images/expr/64sub-cc1/envlight-256-my.jpg" />
       </div>
       <p>Reference / Median Cut Algorithm (envlight 256 samples, Centroid Formula 1)<p>
     </td>
@@ -178,7 +179,7 @@ Y_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)} \; y}{\sum^{}_{(x,
         <div>
           <img src="images/ref/envlight-256.jpg" />
         </div>
-          <img src="images/expr/center2/envlight-256-my.jpg" />
+          <img src="images/expr/64sub-cc2/envlight-256-my.jpg" />
       </div>
       <p>Reference / Median Cut Algorithm (envlight 256 samples, Centroid Formula 2)<p>
     </td>
@@ -194,7 +195,7 @@ Y_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)} \; y}{\sum^{}_{(x,
         <div>
           <img src="images/ref/envlight-256_tonemapped.jpg" />
         </div>
-          <img src="images/expr/center1/envlight-256-my_tonemapped.jpg" />
+          <img src="images/expr/64sub-cc1/envlight-256-my_tonemapped.jpg" />
       </div>
       <p>Reference / Median Cut Algorithm (envlight 256 samples, Centroid Formula 1, tone mapping)<p>
     </td>
@@ -203,7 +204,7 @@ Y_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)} \; y}{\sum^{}_{(x,
         <div>
           <img src="images/ref/envlight-256_tonemapped.jpg" />
         </div>
-          <img src="images/expr/center2/envlight-256-my_tonemapped.jpg" />
+          <img src="images/expr/64sub-cc1/envlight-256-my_tonemapped.jpg" />
       </div>
       <p>Reference / Median Cut Algorithm (envlight 256 samples, Centroid Formula 2, tone mapping)<p>
     </td>
@@ -219,7 +220,7 @@ Y_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)} \; y}{\sum^{}_{(x,
         <div>
           <img src="images/ref/envlight-new-256.jpg" />
         </div>
-          <img src="images/expr/center1/envlight-new-256-my.jpg" />
+          <img src="images/expr/64sub-cc1/envlight-new-256-my.jpg" />
       </div>
       <p>Reference / Median Cut Algorithm (envlight-new 256 samples, Centroid Formula 1)<p>
     </td>
@@ -228,7 +229,7 @@ Y_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)} \; y}{\sum^{}_{(x,
         <div>
           <img src="images/ref/envlight-new-256.jpg" />
         </div>
-          <img src="images/expr/center2/envlight-new-256-my.jpg" />
+          <img src="images/expr/64sub-cc2/envlight-new-256-my.jpg" />
       </div>
       <p>Reference / Median Cut Algorithm (envlight-new 256 samples, cCentroid Formula 2)<p>
     </td>
@@ -236,6 +237,8 @@ Y_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)} \; y}{\sum^{}_{(x,
 </table>
 
 <h3> 測試結果 </h3>
+
+<p>在 Median Cut Algorithm 取樣 64 equal-energy region 的速度差異比較</p>
 
 <h4> Envlight 4 samples </h4>
 <table border="0" width="100%" cellspacing="0" cellpadding="0">
@@ -246,13 +249,13 @@ Y_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)} \; y}{\sum^{}_{(x,
         <li><font color="#008000">Processing Time: 7.044 seconds</font></li>
       </ul>
     </td>
-    <td width="25%"><img border="0" src="images/expr/center1/envlight-4-my.jpg">
+    <td width="25%"><img border="0" src="images/expr/64sub-cc1/envlight-4-my.jpg">
       <p><font color="#008000"><tt>My Implementation 1</tt></font><p>
       <ul>
         <li><font color="#008000">Processing Time: 5.970 seconds</font></li>
       </ul>
     </td>
-    <td width="25%"><img border="0" src="images/expr/center2/envlight-4-my.jpg">
+    <td width="25%"><img border="0" src="images/expr/64sub-cc2/envlight-4-my.jpg">
       <p><font color="#008000"><tt>My Implementation 2</tt></font><p>
       <ul>
         <li><font color="#008000">Processing Time: 5.995 seconds</font></li>
@@ -270,13 +273,13 @@ Y_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)} \; y}{\sum^{}_{(x,
         <li><font color="#008000">Processing Time: 11.570 seconds</font></li>
       </ul>
     </td>
-    <td width="25%"><img border="0" src="images/expr/center1/envlight-16-my.jpg">
+    <td width="25%"><img border="0" src="images/expr/64sub-cc1/envlight-16-my.jpg">
       <p><font color="#008000"><tt>My Implementation 1</tt></font><p>
       <ul>
         <li><font color="#008000">Processing Time: 6.847 seconds</font></li>
       </ul>
     </td>
-    <td width="25%"><img border="0" src="images/expr/center2/envlight-16-my.jpg">
+    <td width="25%"><img border="0" src="images/expr/64sub-cc2/envlight-16-my.jpg">
       <p><font color="#008000"><tt>My Implementation 2</tt></font><p>
       <ul>
         <li><font color="#008000">Processing Time: 10.487 seconds</font></li>
@@ -294,13 +297,13 @@ Y_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)} \; y}{\sum^{}_{(x,
         <li><font color="#008000">Processing Time: 30.650 seconds</font></li>
       </ul>
     </td>
-    <td width="25%"><img border="0" src="images/expr/center1/envlight-64-my.jpg">
+    <td width="25%"><img border="0" src="images/expr/64sub-cc1/envlight-64-my.jpg">
       <p><font color="#008000"><tt>My Implementation 1</tt></font><p>
       <ul>
         <li><font color="#008000">Processing Time: 10.487 seconds</font></li>
       </ul>
     </td>
-    <td width="25%"><img border="0" src="images/expr/center2/envlight-64-my.jpg">
+    <td width="25%"><img border="0" src="images/expr/64sub-cc2/envlight-64-my.jpg">
       <p><font color="#008000"><tt>My Implementation 2</tt></font><p>
       <ul>
         <li><font color="#008000">Processing Time: 10.496 seconds</font></li>
@@ -318,13 +321,13 @@ Y_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)} \; y}{\sum^{}_{(x,
         <li><font color="#008000">Processing Time: 106.768 seconds</font></li>
       </ul>
     </td>
-    <td width="25%"><img border="0" src="images/expr/center1/envlight-256-my.jpg">
+    <td width="25%"><img border="0" src="images/expr/64sub-cc1/envlight-256-my.jpg">
       <p><font color="#008000"><tt>My Implementation 1</tt></font><p>
       <ul>
         <li><font color="#008000">Processing Time: 25.756 seconds</font></li>
       </ul>
     </td>
-    <td width="25%"><img border="0" src="images/expr/center2/envlight-256-my.jpg">
+    <td width="25%"><img border="0" src="images/expr/64sub-cc2/envlight-256-my.jpg">
       <p><font color="#008000"><tt>My Implementation 2</tt></font><p>
       <ul>
         <li><font color="#008000">Processing Time: 27.283 seconds</font></li>
@@ -342,13 +345,13 @@ Y_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)} \; y}{\sum^{}_{(x,
         <li><font color="#008000">Processing Time: 9.343 seconds</font></li>
       </ul>
     </td>
-    <td width="25%"><img border="0" src="images/expr/center1/envlight-new-4-my.jpg">
+    <td width="25%"><img border="0" src="images/expr/64sub-cc1/envlight-new-4-my.jpg">
       <p><font color="#008000"><tt>My Implementation 1</tt></font><p>
       <ul>
         <li><font color="#008000">Processing Time: 11.415 seconds</font></li>
       </ul>
     </td>
-    <td width="25%"><img border="0" src="images/expr/center2/envlight-new-4-my.jpg">
+    <td width="25%"><img border="0" src="images/expr/64sub-cc2/envlight-new-4-my.jpg">
       <p><font color="#008000"><tt>My Implementation 2</tt></font><p>
       <ul>
         <li><font color="#008000">Processing Time: 11.390 seconds</font></li>
@@ -366,13 +369,13 @@ Y_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)} \; y}{\sum^{}_{(x,
         <li><font color="#008000">Processing Time: 14.695 seconds</font></li>
       </ul>
     </td>
-    <td width="25%"><img border="0" src="images/expr/center1/envlight-new-16-my.jpg">
+    <td width="25%"><img border="0" src="images/expr/64sub-cc1/envlight-new-16-my.jpg">
       <p><font color="#008000"><tt>My Implementation 1</tt></font><p>
       <ul>
         <li><font color="#008000">Processing Time: 12.682 seconds</font></li>
       </ul>
     </td>
-    <td width="25%"><img border="0" src="images/expr/center2/envlight-new-16-my.jpg">
+    <td width="25%"><img border="0" src="images/expr/64sub-cc2/envlight-new-16-my.jpg">
       <p><font color="#008000"><tt>My Implementation 2</tt></font><p>
       <ul>
         <li><font color="#008000">Processing Time: 12.640 seconds</font></li>
@@ -390,13 +393,13 @@ Y_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)} \; y}{\sum^{}_{(x,
         <li><font color="#008000">Processing Time: 35.954 seconds</font></li>
       </ul>
     </td>
-    <td width="25%"><img border="0" src="images/expr/center1/envlight-new-64-my.jpg">
+    <td width="25%"><img border="0" src="images/expr/64sub-cc1/envlight-new-64-my.jpg">
       <p><font color="#008000"><tt>My Implementation 1</tt></font><p>
       <ul>
         <li><font color="#008000">Processing Time: 17.984 seconds</font></li>
       </ul>
     </td>
-    <td width="25%"><img border="0" src="images/expr/center2/envlight-new-64-my.jpg">
+    <td width="25%"><img border="0" src="images/expr/64sub-cc2/envlight-new-64-my.jpg">
       <p><font color="#008000"><tt>My Implementation 2</tt></font><p>
       <ul>
         <li><font color="#008000">Processing Time: 17.944 seconds</font></li>
@@ -414,13 +417,13 @@ Y_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)} \; y}{\sum^{}_{(x,
         <li><font color="#008000">Processing Time: 121.204 seconds</font></li>
       </ul>
     </td>
-    <td width="25%"><img border="0" src="images/expr/center1/envlight-new-256-my.jpg">
+    <td width="25%"><img border="0" src="images/expr/64sub-cc1/envlight-new-256-my.jpg">
       <p><font color="#008000"><tt>My Implementation 1</tt></font><p>
       <ul>
         <li><font color="#008000">Processing Time: 39.614 seconds</font></li>
       </ul>
     </td>
-    <td width="25%"><img border="0" src="images/expr/center2/envlight-new-256-my.jpg">
+    <td width="25%"><img border="0" src="images/expr/64sub-cc2/envlight-new-256-my.jpg">
       <p><font color="#008000"><tt>My Implementation 2</tt></font><p>
       <ul>
         <li><font color="#008000">Processing Time: 39.573 seconds</font></li>
@@ -429,6 +432,207 @@ Y_c = \frac{\sum^{}_{(x, y) \in \mathit{region}} L^2_{(x, y)} \; y}{\sum^{}_{(x,
   </tr>
 </table>
 
+<h3> 增加 equal-energy region 測試結果 </h3>
+
+<h4> Envlight 256 samples (My Implementation 1)  </h4>
+
+<div class="image-slider">
+  <div style="width: 400px;">
+    <div class="image-slider">
+      <div style="width: 300px;">
+        <div class="image-slider">
+          <div style="width: 200px;">
+            <img src="images/expr/4sub-cc1/envlight-256-my_tonemapped.jpg" />
+          </div>
+          <img src="images/expr/16sub-cc1/envlight-256-my_tonemapped.jpg" />
+        </div>
+      </div>
+
+      <img src="images/expr/64sub-cc1/envlight-256-my_tonemapped.jpg" />
+    </div>
+  </div>
+  <img src="images/expr/256sub-cc1/envlight-256-my_tonemapped.jpg" />
+</div>
+
+<h4> Envlight 256 samples (My Implementation 2)  </h4>
+
+<div class="image-slider">
+  <div style="width: 400px;">
+    <div class="image-slider">
+      <div style="width: 300px;">
+        <div class="image-slider">
+          <div style="width: 200px;">
+            <img src="images/expr/4sub-cc2/envlight-256-my_tonemapped.jpg" />
+          </div>
+          <img src="images/expr/16sub-cc2/envlight-256-my_tonemapped.jpg" />
+        </div>
+      </div>
+
+      <img src="images/expr/64sub-cc2/envlight-256-my_tonemapped.jpg" />
+    </div>
+  </div>
+  <img src="images/expr/256sub-cc2/envlight-256-my_tonemapped.jpg" />
+</div>
+
+<h4> Envlight New 256 samples (My Implementation 1)  </h4>
+
+<div class="image-slider">
+  <div style="width: 400px;">
+    <div class="image-slider">
+      <div style="width: 300px;">
+        <div class="image-slider">
+          <div style="width: 200px;">
+            <img src="images/expr/4sub-cc1/envlight-new-256-my.jpg" />
+          </div>
+          <img src="images/expr/16sub-cc1/envlight-new-256-my.jpg" />
+        </div>
+      </div>
+
+      <img src="images/expr/64sub-cc1/envlight-new-256-my.jpg" />
+    </div>
+  </div>
+  <img src="images/expr/256sub-cc1/envlight-new-256-my.jpg" />
+</div>
+
+<h4> Envlight New 256 samples (My Implementation 2)  </h4>
+
+<div class="image-slider">
+  <div style="width: 400px;">
+    <div class="image-slider">
+      <div style="width: 300px;">
+        <div class="image-slider">
+          <div style="width: 200px;">
+            <img src="images/expr/4sub-cc2/envlight-new-256-my.jpg" />
+          </div>
+          <img src="images/expr/16sub-cc2/envlight-new-256-my.jpg" />
+        </div>
+      </div>
+
+      <img src="images/expr/64sub-cc2/envlight-new-256-my.jpg" />
+    </div>
+  </div>
+  <img src="images/expr/256sub-cc2/envlight-new-256-my.jpg" />
+</div>
+
+<h4> Envlight 256 samples (My Implementation 1) </h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="25%"><img border="0" src="images/expr/4sub-cc1/envlight-256-my_tonemapped.jpg">
+      <p><font color="#008000"><tt> My Implementation 1, 4 equal-energy region </tt></font><p>
+      <ul>
+        <li><font color="#008000"></font></li>
+      </ul>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/16sub-cc1/envlight-256-my_tonemapped.jpg">
+      <p><font color="#008000"><tt> My Implementation 1, 16 equal-energy region </tt></font><p>
+      <ul>
+        <li><font color="#008000"></font></li>
+      </ul>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/64sub-cc1/envlight-256-my_tonemapped.jpg">
+      <p><font color="#008000"><tt> My Implementation 1, 64 equal-energy region </tt></font><p>
+      <ul>
+        <li><font color="#008000"></font></li>
+      </ul>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/256sub-cc1/envlight-256-my_tonemapped.jpg">
+      <p><font color="#008000"><tt> My Implementation 1, 256 equal-energy region </tt></font><p>
+      <ul>
+        <li><font color="#008000"></font></li>
+      </ul>
+    </td>
+  </tr>
+</table>
+
+<h4> Envlight-new 256 samples (My Implementation 1)</h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="25%"><img border="0" src="images/expr/4sub-cc1/envlight-new-256-my.jpg">
+      <p><font color="#008000"><tt> My Implementation 1, 4 equal-energy region </tt></font><p>
+      <ul>
+        <li><font color="#008000"></font></li>
+      </ul>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/16sub-cc1/envlight-new-256-my.jpg">
+      <p><font color="#008000"><tt> My Implementation 1, 16 equal-energy region </tt></font><p>
+      <ul>
+        <li><font color="#008000"></font></li>
+      </ul>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/64sub-cc1/envlight-new-256-my.jpg">
+      <p><font color="#008000"><tt> My Implementation 1, 64 equal-energy region </tt></font><p>
+      <ul>
+        <li><font color="#008000"></font></li>
+      </ul>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/256sub-cc1/envlight-new-256-my.jpg">
+      <p><font color="#008000"><tt> My Implementation 1, 256 equal-energy region </tt></font><p>
+      <ul>
+        <li><font color="#008000"></font></li>
+      </ul>
+    </td>
+  </tr>
+</table>
+
+<h4> Envlight 256 samples (My Implementation 2)</h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="25%"><img border="0" src="images/expr/4sub-cc2/envlight-256-my_tonemapped.jpg">
+      <p><font color="#008000"><tt> My Implementation 2, 4 equal-energy region </tt></font><p>
+      <ul>
+        <li><font color="#008000"></font></li>
+      </ul>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/16sub-cc2/envlight-256-my_tonemapped.jpg">
+      <p><font color="#008000"><tt> My Implementation 2, 16 equal-energy region </tt></font><p>
+      <ul>
+        <li><font color="#008000"></font></li>
+      </ul>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/64sub-cc2/envlight-256-my_tonemapped.jpg">
+      <p><font color="#008000"><tt> My Implementation 2, 64 equal-energy region </tt></font><p>
+      <ul>
+        <li><font color="#008000"></font></li>
+      </ul>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/256sub-cc2/envlight-256-my_tonemapped.jpg">
+      <p><font color="#008000"><tt> My Implementation 2, 256 equal-energy region </tt></font><p>
+      <ul>
+        <li><font color="#008000"></font></li>
+      </ul>
+    </td>
+  </tr>
+</table>
+
+<h4> Envlight-new 256 samples </h4>
+<table border="0" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="25%"><img border="0" src="images/expr/4sub-cc1/envlight-new-256-my.jpg">
+      <p><font color="#008000"><tt> My Implementation 1, 4 equal-energy region </tt></font><p>
+      <ul>
+        <li><font color="#008000"></font></li>
+      </ul>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/16sub-cc1/envlight-new-256-my.jpg">
+      <p><font color="#008000"><tt> My Implementation 1, 16 equal-energy region </tt></font><p>
+      <ul>
+        <li><font color="#008000"></font></li>
+      </ul>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/64sub-cc1/envlight-new-256-my.jpg">
+      <p><font color="#008000"><tt> My Implementation 1, 64 equal-energy region </tt></font><p>
+      <ul>
+        <li><font color="#008000"></font></li>
+      </ul>
+    </td>
+    <td width="25%"><img border="0" src="images/expr/256sub-cc1/envlight-new-256-my.jpg">
+      <p><font color="#008000"><tt> My Implementation 1, 256 equal-energy region </tt></font><p>
+      <ul>
+        <li><font color="#008000"></font></li>
+      </ul>
+    </td>
+  </tr>
+</table>
 
 <script type="text/javascript">
 !function(){"undefined"!=typeof self&&self.Prism&&self.document&&Prism.hooks.add("complete",function(e){if(e.code){var t=e.element.parentNode,s=/\s*\bline-numbers\b\s*/;if(t&&/pre/i.test(t.nodeName)&&(s.test(t.className)||s.test(e.element.className))&&!e.element.querySelector(".line-numbers-rows")){s.test(e.element.className)&&(e.element.className=e.element.className.replace(s,"")),s.test(t.className)||(t.className+=" line-numbers");var n,a=e.code.match(/\n(?!$)/g),l=a?a.length+1:1,m=new Array(l+1);m=m.join("<span></span>"),n=document.createElement("span"),n.className="line-numbers-rows",n.innerHTML=m,t.hasAttribute("data-start")&&(t.style.counterReset="linenumber "+(parseInt(t.getAttribute("data-start"),10)-1)),e.element.appendChild(n)}}})}();
