@@ -120,6 +120,18 @@ extern struct LinearBVHNode {
     uint8_t pad[2];       // ensure 32 byte total size
 };
 
+struct LinearBVHContractNode {
+    BBox bounds;
+    uint32_t primitivesOffset;    // leaf
+	
+	uint32_t parentOffset;	// interior
+	uint32_t childOffsetHead, childOffsetTail;	// interior
+	uint32_t siblingOffsetNext, siblingOffsetPrev;	// interior
+
+    uint8_t nPrimitives;  // 0 -> interior node
+    uint8_t axis;         // interior node: xyz
+    uint8_t pad[2];       // ensure 32 byte total size
+};
 
 static inline bool IntersectP(const BBox &bounds, const Ray &ray,
         const Vector &invDir, const uint32_t dirIsNeg[3]) {
@@ -146,10 +158,14 @@ static inline bool IntersectP(const BBox &bounds, const Ray &ray,
 }
 
 
-
+#define MORRISDEBUG
 // BVHAccel Method Definitions
 BVHContractAccel::BVHContractAccel(const vector<Reference<Primitive> > &p,
                    uint32_t mp, const string &sm) {
+
+#ifdef MORRISDEBUG
+	fprintf(stderr, "BVHContractAccle Create\n");
+#endif
     maxPrimsInNode = min(255u, mp);
     for (uint32_t i = 0; i < p.size(); ++i)
         p[i]->FullyRefine(primitives);
@@ -190,11 +206,12 @@ BVHContractAccel::BVHContractAccel(const vector<Reference<Primitive> > &p,
              (int)primitives.size(), float(totalNodes * sizeof(LinearBVHNode))/(1024.f*1024.f));
 
     // Compute representation of depth-first traversal of BVH tree
-    nodes = AllocAligned<LinearBVHNode>(totalNodes);
+	fprintf(stderr, "Total Nodes = %d\n", totalNodes);
+    nodes = AllocAligned<LinearBVHContractNode>(totalNodes);
     for (uint32_t i = 0; i < totalNodes; ++i)
-        new (&nodes[i]) LinearBVHNode;
+        new (&nodes[i]) LinearBVHContractNode;
     uint32_t offset = 0;
-    flattenBVHTree(root, &offset);
+    flattenBVHTree(root, &offset, -1);
     Assert(offset == totalNodes);
     PBRT_BVH_FINISHED_CONSTRUCTION(this);
 }
@@ -372,9 +389,12 @@ BVHBuildNode *BVHContractAccel::recursiveBuild(MemoryArena &buildArena,
 }
 
 
-uint32_t BVHContractAccel::flattenBVHTree(BVHBuildNode *node, uint32_t *offset) {
-    LinearBVHNode *linearNode = &nodes[*offset];
+uint32_t BVHContractAccel::flattenBVHTree(BVHBuildNode *node, uint32_t *offset, uint32_t parentOffset) {
+    LinearBVHContractNode *linearNode = &nodes[*offset];
     linearNode->bounds = node->bounds;
+	linearNode->childOffsetHead = linearNode->childOffsetTail = -1;
+	linearNode->siblingOffsetNext = linearNode->siblingOffsetPrev = -1;
+	linearNode->parentOffset = parentOffset;
     uint32_t myOffset = (*offset)++;
     if (node->nPrimitives > 0) {
         Assert(!node->children[0] && !node->children[1]);
@@ -385,9 +405,12 @@ uint32_t BVHContractAccel::flattenBVHTree(BVHBuildNode *node, uint32_t *offset) 
         // Creater interior flattened BVH node
         linearNode->axis = node->splitAxis;
         linearNode->nPrimitives = 0;
-        flattenBVHTree(node->children[0], offset);
-        linearNode->secondChildOffset = flattenBVHTree(node->children[1],
-                                                       offset);
+        linearNode->childOffsetHead = flattenBVHTree(node->children[0], offset, myOffset);
+		linearNode->childOffsetTail = flattenBVHTree(node->children[1], offset, myOffset);
+		LinearBVHContractNode *prevSiblingNode = &nodes[linearNode->childOffsetHead];
+		LinearBVHContractNode *nextSiblingNode = &nodes[linearNode->childOffsetTail];
+		prevSiblingNode->siblingOffsetNext = linearNode->childOffsetTail;
+		nextSiblingNode->siblingOffsetPrev = linearNode->childOffsetHead;
     }
     return myOffset;
 }
@@ -405,48 +428,80 @@ bool BVHContractAccel::Intersect(const Ray &ray, Intersection *isect) const {
     Vector invDir(1.f / ray.d.x, 1.f / ray.d.y, 1.f / ray.d.z);
     uint32_t dirIsNeg[3] = { invDir.x < 0, invDir.y < 0, invDir.z < 0 };
     // Follow ray through BVH nodes to find primitive intersections
-    uint32_t todoOffset = 0, nodeNum = 0;
-    uint32_t todo[64];
-    while (true) {
-        const LinearBVHNode *node = &nodes[nodeNum];
-        // Check ray against BVH node
-        if (::IntersectP(node->bounds, ray, invDir, dirIsNeg)) {
-            if (node->nPrimitives > 0) {
-                // Intersect ray with primitives in leaf BVH node
-                PBRT_BVH_INTERSECTION_TRAVERSED_LEAF_NODE(const_cast<LinearBVHNode *>(node));
-                for (uint32_t i = 0; i < node->nPrimitives; ++i)
-                {
-                    PBRT_BVH_INTERSECTION_PRIMITIVE_TEST(const_cast<Primitive *>(primitives[node->primitivesOffset+i].GetPtr()));
-                    if (primitives[node->primitivesOffset+i]->Intersect(ray, isect))
-                    {
-                        PBRT_BVH_INTERSECTION_PRIMITIVE_HIT(const_cast<Primitive *>(primitives[node->primitivesOffset+i].GetPtr()));
-                        hit = true;
-                    }
-                    else {
-                        PBRT_BVH_INTERSECTION_PRIMITIVE_MISSED(const_cast<Primitive *>(primitives[node->primitivesOffset+i].GetPtr()));
-                   }
-                }
-                if (todoOffset == 0) break;
-                nodeNum = todo[--todoOffset];
-            }
-            else {
-                // Put far BVH node on _todo_ stack, advance to near node
-                PBRT_BVH_INTERSECTION_TRAVERSED_INTERIOR_NODE(const_cast<LinearBVHNode *>(node));
-                if (dirIsNeg[node->axis]) {
-                   todo[todoOffset++] = nodeNum + 1;
-                   nodeNum = node->secondChildOffset;
-                }
-                else {
-                   todo[todoOffset++] = node->secondChildOffset;
-                   nodeNum = nodeNum + 1;
-                }
-            }
-        }
-        else {
-            if (todoOffset == 0) break;
-            nodeNum = todo[--todoOffset];
-        }
-    }
+    
+	bool process = true;
+	uint32_t idxOffset = 0;
+	int visited = 0;
+	while (idxOffset != -1) {
+		const LinearBVHContractNode *node = &nodes[idxOffset];
+		if (process) {
+			visited++;
+			// Check ray against BVH node
+			if (::IntersectP(node->bounds, ray, invDir, dirIsNeg)) {
+				if (node->nPrimitives > 0) {
+					// Intersect ray with primitives in leaf BVH node
+					PBRT_BVH_INTERSECTION_TRAVERSED_LEAF_NODE(const_cast<LinearBVHContractNode *>(node));
+					for (uint32_t i = 0; i < node->nPrimitives; ++i)
+					{
+						PBRT_BVH_INTERSECTION_PRIMITIVE_TEST(const_cast<Primitive *>(primitives[node->primitivesOffset+i].GetPtr()));
+						if (primitives[node->primitivesOffset+i]->Intersect(ray, isect))
+						{
+							PBRT_BVH_INTERSECTION_PRIMITIVE_HIT(const_cast<Primitive *>(primitives[node->primitivesOffset+i].GetPtr()));
+							hit = true;
+						}
+						else {
+							PBRT_BVH_INTERSECTION_PRIMITIVE_MISSED(const_cast<Primitive *>(primitives[node->primitivesOffset+i].GetPtr()));
+					   }
+					}
+					// process = false;	// Stop
+				}
+			} else {
+				process = false;
+			}
+		}
+
+		if (dirIsNeg[node->axis]) {
+			if (node->childOffsetTail != -1 && process) {
+				idxOffset = node->childOffsetTail;
+				process = true;
+			} else if (node->parentOffset != -1) {
+				const LinearBVHContractNode *pNode = &nodes[node->parentOffset];
+				if (dirIsNeg[pNode->axis] && node->siblingOffsetPrev != -1) {
+					idxOffset = node->siblingOffsetPrev;
+					process = true;
+				} else if (!dirIsNeg[pNode->axis] && node->siblingOffsetNext != -1) {
+					idxOffset = node->siblingOffsetNext;
+					process = true;
+				} else {
+					idxOffset = node->parentOffset;
+					process = false;
+				}
+			} else {
+				idxOffset = node->parentOffset;
+				process = false;
+			}
+		} else {
+			if (node->childOffsetHead != -1 && process) {
+				idxOffset = node->childOffsetHead;
+				process = true;
+			} else if (node->parentOffset != -1) {
+				const LinearBVHContractNode *pNode = &nodes[node->parentOffset];
+				if (dirIsNeg[pNode->axis] && node->siblingOffsetPrev != -1) {
+					idxOffset = node->siblingOffsetPrev;
+					process = true;
+				} else if (!dirIsNeg[pNode->axis] && node->siblingOffsetNext != -1) {
+					idxOffset = node->siblingOffsetNext;
+					process = true;
+				} else {
+					idxOffset = node->parentOffset;
+					process = false;
+				}
+			} else {
+				idxOffset = node->parentOffset;
+				process = false;
+			}
+		}
+	}
     PBRT_BVH_INTERSECTION_FINISHED();
     return hit;
 }
@@ -457,45 +512,74 @@ bool BVHContractAccel::IntersectP(const Ray &ray) const {
     PBRT_BVH_INTERSECTIONP_STARTED(const_cast<BVHAccel *>(this), const_cast<Ray *>(&ray));
     Vector invDir(1.f / ray.d.x, 1.f / ray.d.y, 1.f / ray.d.z);
     uint32_t dirIsNeg[3] = { invDir.x < 0, invDir.y < 0, invDir.z < 0 };
-    uint32_t todo[64];
-    uint32_t todoOffset = 0, nodeNum = 0;
-    while (true) {
-        const LinearBVHNode *node = &nodes[nodeNum];
-        if (::IntersectP(node->bounds, ray, invDir, dirIsNeg)) {
-            // Process BVH node _node_ for traversal
-            if (node->nPrimitives > 0) {
-                PBRT_BVH_INTERSECTIONP_TRAVERSED_LEAF_NODE(const_cast<LinearBVHNode *>(node));
-                  for (uint32_t i = 0; i < node->nPrimitives; ++i) {
-                    PBRT_BVH_INTERSECTIONP_PRIMITIVE_TEST(const_cast<Primitive *>(primitives[node->primitivesOffset + i].GetPtr()));
-                    if (primitives[node->primitivesOffset+i]->IntersectP(ray)) {
-                        PBRT_BVH_INTERSECTIONP_PRIMITIVE_HIT(const_cast<Primitive *>(primitives[node->primitivesOffset+i].GetPtr()));
-                        return true;
-                    }
-                else {
-                        PBRT_BVH_INTERSECTIONP_PRIMITIVE_MISSED(const_cast<Primitive *>(primitives[node->primitivesOffset + i].GetPtr()));
-                    }
-                }
-                if (todoOffset == 0) break;
-                nodeNum = todo[--todoOffset];
-            }
-            else {
-                PBRT_BVH_INTERSECTIONP_TRAVERSED_INTERIOR_NODE(const_cast<LinearBVHNode *>(node));
-                if (dirIsNeg[node->axis]) {
-                   /// second child first
-                   todo[todoOffset++] = nodeNum + 1;
-                   nodeNum = node->secondChildOffset;
-                }
-                else {
-                   todo[todoOffset++] = node->secondChildOffset;
-                   nodeNum = nodeNum + 1;
-                }
-            }
-        }
-        else {
-            if (todoOffset == 0) break;
-            nodeNum = todo[--todoOffset];
-        }
-    }
+    
+	bool process = true;
+	uint32_t idxOffset = 0;
+	while (idxOffset != -1) {
+		const LinearBVHContractNode *node = &nodes[idxOffset];
+		if (process) {
+			// Check ray against BVH node
+			if (::IntersectP(node->bounds, ray, invDir, dirIsNeg)) {
+				if (node->nPrimitives > 0) {
+					PBRT_BVH_INTERSECTIONP_TRAVERSED_LEAF_NODE(const_cast<LinearBVHContractNode *>(node));
+					  for (uint32_t i = 0; i < node->nPrimitives; ++i) {
+						PBRT_BVH_INTERSECTIONP_PRIMITIVE_TEST(const_cast<Primitive *>(primitives[node->primitivesOffset + i].GetPtr()));
+						if (primitives[node->primitivesOffset+i]->IntersectP(ray)) {
+							PBRT_BVH_INTERSECTIONP_PRIMITIVE_HIT(const_cast<Primitive *>(primitives[node->primitivesOffset+i].GetPtr()));
+							return true;
+						}
+						else {
+							PBRT_BVH_INTERSECTIONP_PRIMITIVE_MISSED(const_cast<Primitive *>(primitives[node->primitivesOffset + i].GetPtr()));
+						}
+					}
+				}
+			} else {
+				process = false;
+			}
+		}
+		
+		if (dirIsNeg[node->axis]) {
+			if (node->childOffsetTail != -1 && process) {
+				idxOffset = node->childOffsetTail;
+				process = true;
+			} else if (node->parentOffset != -1) {
+				const LinearBVHContractNode *pNode = &nodes[node->parentOffset];
+				if (dirIsNeg[pNode->axis] && node->siblingOffsetPrev != -1) {
+					idxOffset = node->siblingOffsetPrev;
+					process = true;
+				} else if (!dirIsNeg[pNode->axis] && node->siblingOffsetNext != -1) {
+					idxOffset = node->siblingOffsetNext;
+					process = true;
+				} else {
+					idxOffset = node->parentOffset;
+					process = false;
+				}
+			} else {
+				idxOffset = node->parentOffset;
+				process = false;
+			}
+		} else {
+			if (node->childOffsetHead != -1 && process) {
+				idxOffset = node->childOffsetHead;
+				process = true;
+			} else if (node->parentOffset != -1) {
+				const LinearBVHContractNode *pNode = &nodes[node->parentOffset];
+				if (dirIsNeg[pNode->axis] && node->siblingOffsetPrev != -1) {
+					idxOffset = node->siblingOffsetPrev;
+					process = true;
+				} else if (!dirIsNeg[pNode->axis] && node->siblingOffsetNext != -1) {
+					idxOffset = node->siblingOffsetNext;
+					process = true;
+				} else {
+					idxOffset = node->parentOffset;
+					process = false;
+				}
+			} else {
+				idxOffset = node->parentOffset;
+				process = false;
+			}
+		}
+	}
     PBRT_BVH_INTERSECTIONP_FINISHED();
     return false;
 }

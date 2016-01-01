@@ -42,6 +42,7 @@
 
 // BVHAccel Forward Declarations
 #include "accelerators/bvh.h"
+struct LinearBVHContractNode;
 
 // BVHAccel Declarations
 class BVHContractAccel : public Aggregate {
@@ -59,14 +60,14 @@ private:
     BVHBuildNode *recursiveBuild(MemoryArena &buildArena,
         vector<BVHPrimitiveInfo> &buildData, uint32_t start, uint32_t end,
         uint32_t *totalNodes, vector<Reference<Primitive> > &orderedPrims);
-    uint32_t flattenBVHTree(BVHBuildNode *node, uint32_t *offset);
+    uint32_t flattenBVHTree(BVHBuildNode *node, uint32_t *offset, uint32_t parentOffset);
 
     // BVHAccel Private Data
     uint32_t maxPrimsInNode;
     enum SplitMethod { SPLIT_MIDDLE, SPLIT_EQUAL_COUNTS, SPLIT_SAH };
     SplitMethod splitMethod;
     vector<Reference<Primitive> > primitives;
-    LinearBVHNode *nodes;
+    LinearBVHContractNode *nodes;
 };
 
 
