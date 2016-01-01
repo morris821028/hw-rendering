@@ -61,6 +61,8 @@ private:
         vector<BVHPrimitiveInfo> &buildData, uint32_t start, uint32_t end,
         uint32_t *totalNodes, vector<Reference<Primitive> > &orderedPrims);
     uint32_t flattenBVHTree(BVHBuildNode *node, uint32_t *offset, uint32_t parentOffset);
+	void recursiveContract(uint32_t uoffset);
+	bool BVHContractAccel::contractionCriterion(LinearBVHContractNode *node, LinearBVHContractNode *pnode);
 
     // BVHAccel Private Data
     uint32_t maxPrimsInNode;

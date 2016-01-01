@@ -38,14 +38,7 @@
 #include "paramset.h"
 
 // BVHAccel Local Declarations
-/*
-extern struct BVHPrimitiveInfo;
-extern struct BVHBuildNode;
-extern struct CompareToMid;
-extern struct ComparePoints;
-extern struct CompareToBucket;
-extern struct LinearBVHNode;
-*/
+
 extern struct BVHPrimitiveInfo {
     BVHPrimitiveInfo() { }
     BVHPrimitiveInfo(int pn, const BBox &b)
@@ -127,6 +120,8 @@ struct LinearBVHContractNode {
 	uint32_t parentOffset;	// interior
 	uint32_t childOffsetHead, childOffsetTail;	// interior
 	uint32_t siblingOffsetNext, siblingOffsetPrev;	// interior
+
+	uint32_t numChild, visitCount;	// contract record
 
     uint8_t nPrimitives;  // 0 -> interior node
     uint8_t axis;         // interior node: xyz
@@ -212,6 +207,11 @@ BVHContractAccel::BVHContractAccel(const vector<Reference<Primitive> > &p,
         new (&nodes[i]) LinearBVHContractNode;
     uint32_t offset = 0;
     flattenBVHTree(root, &offset, -1);
+
+	if (totalNodes) {
+		recursiveContract(0);
+	}
+
     Assert(offset == totalNodes);
     PBRT_BVH_FINISHED_CONSTRUCTION(this);
 }
@@ -394,6 +394,7 @@ uint32_t BVHContractAccel::flattenBVHTree(BVHBuildNode *node, uint32_t *offset, 
     linearNode->bounds = node->bounds;
 	linearNode->childOffsetHead = linearNode->childOffsetTail = -1;
 	linearNode->siblingOffsetNext = linearNode->siblingOffsetPrev = -1;
+	linearNode->numChild = linearNode->visitCount = 0;
 	linearNode->parentOffset = parentOffset;
     uint32_t myOffset = (*offset)++;
     if (node->nPrimitives > 0) {
@@ -405,6 +406,7 @@ uint32_t BVHContractAccel::flattenBVHTree(BVHBuildNode *node, uint32_t *offset, 
         // Creater interior flattened BVH node
         linearNode->axis = node->splitAxis;
         linearNode->nPrimitives = 0;
+		linearNode->numChild = 2;
         linearNode->childOffsetHead = flattenBVHTree(node->children[0], offset, myOffset);
 		linearNode->childOffsetTail = flattenBVHTree(node->children[1], offset, myOffset);
 		LinearBVHContractNode *prevSiblingNode = &nodes[linearNode->childOffsetHead];
@@ -453,7 +455,6 @@ bool BVHContractAccel::Intersect(const Ray &ray, Intersection *isect) const {
 							PBRT_BVH_INTERSECTION_PRIMITIVE_MISSED(const_cast<Primitive *>(primitives[node->primitivesOffset+i].GetPtr()));
 					   }
 					}
-					// process = false;	// Stop
 				}
 			} else {
 				process = false;
@@ -584,6 +585,56 @@ bool BVHContractAccel::IntersectP(const Ray &ray) const {
     return false;
 }
 
+#define BVH_CONTRACT_SA_THRESHOLD 10000
+bool BVHContractAccel::contractionCriterion(LinearBVHContractNode *node, LinearBVHContractNode *pnode) {
+	if (pnode == NULL || node == NULL || node->numChild == 0)
+		return false;
+	if (node->visitCount < BVH_CONTRACT_SA_THRESHOLD) {
+		float alpha = node->bounds.SurfaceArea() / pnode->bounds.SurfaceArea();
+		return alpha > 1.f - 1.f / node->numChild;
+	}
+	return false;
+}
+void BVHContractAccel::recursiveContract(uint32_t uoffset) {
+	LinearBVHContractNode *node = &nodes[uoffset];
+	if (node->nPrimitives > 0)	// is leaf
+		return ;
+	uint32_t offset = node->childOffsetHead;
+	while (offset != -1) {
+		LinearBVHContractNode *currChild = &nodes[offset];
+		if (contractionCriterion(currChild, node)) {
+			if (currChild->siblingOffsetNext != -1) {
+				LinearBVHContractNode *ctail = &nodes[currChild->childOffsetTail];
+				ctail->siblingOffsetNext = currChild->siblingOffsetNext;
+				LinearBVHContractNode *cnext = &nodes[currChild->siblingOffsetNext];
+				cnext->siblingOffsetPrev = currChild->childOffsetTail;
+			} else {
+				node->childOffsetTail = currChild->childOffsetTail;
+			}
+
+			if (currChild->siblingOffsetPrev != -1) {
+				LinearBVHContractNode *chead = &nodes[currChild->childOffsetHead];
+				chead->siblingOffsetPrev = currChild->siblingOffsetPrev;
+				LinearBVHContractNode *cprev = &nodes[currChild->siblingOffsetPrev];
+			 	cprev->siblingOffsetNext = currChild->childOffsetHead;
+			} else {
+				node->childOffsetHead = currChild->childOffsetHead;
+			}
+			node->numChild = node->numChild + currChild->numChild - 1;
+			offset = currChild->childOffsetHead;
+		} else {
+			offset = currChild->siblingOffsetNext;
+		}
+	}
+
+	offset = node->childOffsetHead;
+	while (offset != -1) {
+		LinearBVHContractNode *currChild = &nodes[offset];
+		currChild->parentOffset = uoffset;
+		recursiveContract(offset);
+		offset = currChild->siblingOffsetNext;
+	}
+}
 
 BVHContractAccel *CreateBVHContractAccelerator(const vector<Reference<Primitive> > &prims,
         const ParamSet &ps) {
