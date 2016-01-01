@@ -55,6 +55,7 @@ public:
     ~BVHContractAccel();
     bool Intersect(const Ray &ray, Intersection *isect) const;
     bool IntersectP(const Ray &ray) const;
+	void tick();
 private:
     // BVHAccel Private Methods
     BVHBuildNode *recursiveBuild(MemoryArena &buildArena,
@@ -62,10 +63,11 @@ private:
         uint32_t *totalNodes, vector<Reference<Primitive> > &orderedPrims);
     uint32_t flattenBVHTree(BVHBuildNode *node, uint32_t *offset, uint32_t parentOffset);
 	void recursiveContract(uint32_t uoffset);
-	bool BVHContractAccel::contractionCriterion(LinearBVHContractNode *node, LinearBVHContractNode *pnode);
+	bool contractionCriterion(LinearBVHContractNode *node, LinearBVHContractNode *pnode);
 
     // BVHAccel Private Data
     uint32_t maxPrimsInNode;
+	uint32_t realNodes, intersectTest;
     enum SplitMethod { SPLIT_MIDDLE, SPLIT_EQUAL_COUNTS, SPLIT_SAH };
     SplitMethod splitMethod;
     vector<Reference<Primitive> > primitives;

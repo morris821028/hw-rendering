@@ -209,7 +209,10 @@ BVHContractAccel::BVHContractAccel(const vector<Reference<Primitive> > &p,
     flattenBVHTree(root, &offset, -1);
 
 	if (totalNodes) {
+		intersectTest = 0;
+		realNodes = totalNodes;
 		recursiveContract(0);
+		fprintf(stderr, "Preprocessing Contract %d / %d\n", realNodes, totalNodes);
 	}
 
     Assert(offset == totalNodes);
@@ -422,7 +425,18 @@ BVHContractAccel::~BVHContractAccel() {
     FreeAligned(nodes);
 }
 
-
+void BVHContractAccel::tick() {
+	if (!nodes)	return ;
+	uint32_t test = nodes[0].visitCount;
+	if ((test>>23) > intersectTest && intersectTest == 0) {
+		intersectTest = test>>23;
+		fprintf(stderr, "BVHContractAccel tick()\n");
+		recursiveContract(0);
+		fprintf(stderr, "Ray-Distribution Guided Contraction Remain Node %d\n", realNodes);
+		fflush(stderr);
+	}
+	return ;
+}
 bool BVHContractAccel::Intersect(const Ray &ray, Intersection *isect) const {
     if (!nodes) return false;
     PBRT_BVH_INTERSECTION_STARTED(const_cast<BVHAccel *>(this), const_cast<Ray *>(&ray));
@@ -433,11 +447,10 @@ bool BVHContractAccel::Intersect(const Ray &ray, Intersection *isect) const {
     
 	bool process = true;
 	uint32_t idxOffset = 0;
-	int visited = 0;
 	while (idxOffset != -1) {
-		const LinearBVHContractNode *node = &nodes[idxOffset];
+		LinearBVHContractNode *node = &nodes[idxOffset];
+		(node->visitCount)++;
 		if (process) {
-			visited++;
 			// Check ray against BVH node
 			if (::IntersectP(node->bounds, ray, invDir, dirIsNeg)) {
 				if (node->nPrimitives > 0) {
@@ -517,7 +530,8 @@ bool BVHContractAccel::IntersectP(const Ray &ray) const {
 	bool process = true;
 	uint32_t idxOffset = 0;
 	while (idxOffset != -1) {
-		const LinearBVHContractNode *node = &nodes[idxOffset];
+		LinearBVHContractNode *node = &nodes[idxOffset];
+		(node->visitCount)++;
 		if (process) {
 			// Check ray against BVH node
 			if (::IntersectP(node->bounds, ray, invDir, dirIsNeg)) {
@@ -585,12 +599,16 @@ bool BVHContractAccel::IntersectP(const Ray &ray) const {
     return false;
 }
 
-#define BVH_CONTRACT_SA_THRESHOLD 10000
+#define BVH_CONTRACT_SA_THRESHOLD 512
 bool BVHContractAccel::contractionCriterion(LinearBVHContractNode *node, LinearBVHContractNode *pnode) {
 	if (pnode == NULL || node == NULL || node->numChild == 0)
 		return false;
 	if (node->visitCount < BVH_CONTRACT_SA_THRESHOLD) {
 		float alpha = node->bounds.SurfaceArea() / pnode->bounds.SurfaceArea();
+		return alpha > 1.f - 1.f / node->numChild;
+	} else {
+		// fprintf(stderr, "Sat. node->visitCount > %d\n", BVH_CONTRACT_SA_THRESHOLD);
+		float alpha = 1.f * node->visitCount / pnode->visitCount;
 		return alpha > 1.f - 1.f / node->numChild;
 	}
 	return false;
@@ -603,6 +621,7 @@ void BVHContractAccel::recursiveContract(uint32_t uoffset) {
 	while (offset != -1) {
 		LinearBVHContractNode *currChild = &nodes[offset];
 		if (contractionCriterion(currChild, node)) {
+			realNodes--;
 			if (currChild->siblingOffsetNext != -1) {
 				LinearBVHContractNode *ctail = &nodes[currChild->childOffsetTail];
 				ctail->siblingOffsetNext = currChild->siblingOffsetNext;
