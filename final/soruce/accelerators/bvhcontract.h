@@ -64,7 +64,7 @@ private:
     uint32_t flattenBVHTree(BVHBuildNode *node, uint32_t *offset, uint32_t parentOffset);
 	void recursiveContract(uint32_t uoffset);
 	bool contractionCriterion(LinearBVHContractNode *node, LinearBVHContractNode *pnode);
-
+	uint32_t flattenLinearBVHTree(uint32_t uoffset, LinearBVHContractNode mem[], uint32_t *offset, uint32_t parentOffset);
     // BVHAccel Private Data
     uint32_t maxPrimsInNode;
 	uint32_t realNodes, intersectTest;

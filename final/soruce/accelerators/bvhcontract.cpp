@@ -115,15 +115,15 @@ extern struct LinearBVHNode {
 
 struct LinearBVHContractNode {
     BBox bounds;
-    uint32_t primitivesOffset;    // leaf
-	
-	uint32_t parentOffset;	// interior
+	uint32_t primitivesOffset;    // leaf
+	uint32_t parentOffset;
 	uint32_t childOffsetHead, childOffsetTail;	// interior
 	uint32_t siblingOffsetNext, siblingOffsetPrev;	// interior
 
-	uint32_t numChild, visitCount;	// contract record
+	uint32_t numChild;
+	uint32_t visitCount;	// contract record
 
-    uint8_t nPrimitives;  // 0 -> interior node
+	uint8_t nPrimitives;  // 0 -> interior node
     uint8_t axis;         // interior node: xyz
     uint8_t pad[2];       // ensure 32 byte total size
 };
@@ -213,6 +213,16 @@ BVHContractAccel::BVHContractAccel(const vector<Reference<Primitive> > &p,
 		realNodes = totalNodes;
 		recursiveContract(0);
 		fprintf(stderr, "Preprocessing Contract %d / %d\n", realNodes, totalNodes);
+		fprintf(stderr, "re-flattenBVH tree %d / %d\n", realNodes, totalNodes);
+		LinearBVHContractNode *mem = AllocAligned<LinearBVHContractNode>(realNodes);
+		for (uint32_t i = 0; i < realNodes; ++i)
+			new (&mem[i]) LinearBVHContractNode;
+		uint32_t toffset = 0;
+		flattenLinearBVHTree(0, mem, &toffset, -1);
+		Assert(toffset == realNodes);
+		totalNodes = realNodes, offset = totalNodes;
+		FreeAligned(nodes);
+		nodes = mem;
 	}
 
     Assert(offset == totalNodes);
@@ -612,6 +622,29 @@ bool BVHContractAccel::contractionCriterion(LinearBVHContractNode *node, LinearB
 		return alpha > 1.f - 1.f / node->numChild;
 	}
 	return false;
+}
+uint32_t BVHContractAccel::flattenLinearBVHTree(uint32_t uoffset, LinearBVHContractNode mem[], uint32_t *offset, uint32_t parentOffset) {
+	LinearBVHContractNode *node = &nodes[uoffset];
+	LinearBVHContractNode *linearNode = &mem[*offset];
+	uint32_t myOffset = (*offset)++;
+	*linearNode = *node;
+	linearNode->parentOffset = parentOffset;
+	uint32_t it = node->childOffsetHead, prevChildOffset = -1, currChildOffset = -1;
+	while (it != -1) {
+		LinearBVHContractNode *currChild = &nodes[it];
+		currChild->parentOffset = uoffset;
+		currChildOffset = flattenLinearBVHTree(it, mem, offset, myOffset);
+		if (prevChildOffset == -1) {
+			linearNode->childOffsetHead = currChildOffset;
+		} else {
+			mem[prevChildOffset].siblingOffsetNext = currChildOffset;
+			mem[currChildOffset].siblingOffsetPrev = prevChildOffset;
+		}
+		prevChildOffset = currChildOffset;
+		it = currChild->siblingOffsetNext;
+	}
+	linearNode->childOffsetTail = prevChildOffset;
+	return myOffset;
 }
 void BVHContractAccel::recursiveContract(uint32_t uoffset) {
 	LinearBVHContractNode *node = &nodes[uoffset];
