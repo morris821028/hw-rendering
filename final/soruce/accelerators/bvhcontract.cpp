@@ -211,7 +211,7 @@ BVHContractAccel::BVHContractAccel(const vector<Reference<Primitive> > &p,
 	if (totalNodes) {
 		intersectTest = 0;
 		realNodes = totalNodes;
-		recursiveContract(0);
+		recursiveContractSA(0);
 		fprintf(stderr, "Preprocessing Contract %d / %d\n", realNodes, totalNodes);
 		fprintf(stderr, "re-flattenBVH tree %d / %d\n", realNodes, totalNodes);
 		LinearBVHContractNode *mem = AllocAligned<LinearBVHContractNode>(realNodes);
@@ -437,11 +437,12 @@ BVHContractAccel::~BVHContractAccel() {
 
 void BVHContractAccel::tick() {
 	if (!nodes)	return ;
+
 	uint32_t test = nodes[0].visitCount;
-	if ((test>>23) > intersectTest && intersectTest == 0) {
-		intersectTest = test>>23;
+	if ((test>>24) > intersectTest && intersectTest == 0) {
+		intersectTest = test>>24;
 		fprintf(stderr, "BVHContractAccel tick()\n");
-		recursiveContract(0);
+		recursiveContractSA(0);
 		fprintf(stderr, "Ray-Distribution Guided Contraction Remain Node %d\n", realNodes);
 		fflush(stderr);
 	}
@@ -609,19 +610,156 @@ bool BVHContractAccel::IntersectP(const Ray &ray) const {
     return false;
 }
 
-#define BVH_CONTRACT_SA_THRESHOLD 512
-bool BVHContractAccel::contractionCriterion(LinearBVHContractNode *node, LinearBVHContractNode *pnode) {
+struct CompareContractPoints {
+    CompareContractPoints(int d) { dim = d; }
+    int dim;
+    bool operator()(const std::pair<uint32_t, Point> &a,
+                    const std::pair<uint32_t, Point> &b) const {
+        return a.second[dim] < b.second[dim];
+    }
+};
+
+struct CompareContractToBucket {
+    CompareContractToBucket(int split, int num, int d, const BBox &b)
+        : centroidBounds(b)
+    { splitBucket = split; nBuckets = num; dim = d; }
+    bool operator()(const std::pair<uint32_t, Point> &p, 
+					const std::pair<uint32_t, Point> &q) const {
+		int b = nBuckets * ((p.second[dim] - centroidBounds.pMin[dim]) /
+            (centroidBounds.pMax[dim] - centroidBounds.pMin[dim]));
+		int c = nBuckets * ((q.second[dim] - centroidBounds.pMin[dim]) /
+            (centroidBounds.pMax[dim] - centroidBounds.pMin[dim]));
+		if (b == nBuckets) b = nBuckets-1;
+		if (c == nBuckets) c = nBuckets-1;
+		Assert(b >= 0 && b < nBuckets);
+		Assert(c >= 0 && c < nBuckets);
+		return b <= c;
+	}
+
+    int splitBucket, nBuckets, dim;
+    const BBox &centroidBounds;
+};
+
+
+void BVHContractAccel::reorderChild(uint32_t uoffset, LinearBVHContractNode mem[]) {
+	LinearBVHContractNode *node = &mem[uoffset];
+
+	if (node->numChild == 0)	return ;
+
+	BBox centroidBounds;
+	for (uint32_t offset = node->childOffsetHead; offset != -1; ) {
+		LinearBVHContractNode *currChild = &mem[offset];
+		Point centroid = .5f * currChild->bounds.pMin + .5f * currChild->bounds.pMax;
+		offset = currChild->siblingOffsetNext;
+		centroidBounds = Union(centroidBounds, centroid);
+	}
+	int dim = centroidBounds.MaximumExtent();
+
+	switch (splitMethod) {
+	case SPLIT_MIDDLE: case SPLIT_EQUAL_COUNTS: {
+		uint32_t offset = node->childOffsetHead;
+		vector<std::pair<uint32_t, Point>> A;
+		while (offset != -1) {
+			LinearBVHContractNode *currChild = &mem[offset];
+			A.push_back(std::make_pair(offset, .5f * currChild->bounds.pMin + .5f * currChild->bounds.pMax));
+			offset = currChild->siblingOffsetNext;
+		}
+
+		std::sort(A.begin(), A.end(), CompareContractPoints(dim));
+		node->childOffsetHead = A.front().first;
+		node->childOffsetTail = A.back().first;
+		mem[A.front().first].siblingOffsetPrev = -1;
+		mem[A.back().first].siblingOffsetNext = -1;
+		for (uint32_t it = 1; it < A.size(); it++) {
+			LinearBVHContractNode *a = &mem[A[it-1].first];
+			LinearBVHContractNode *b = &mem[A[it].first];
+			a->siblingOffsetNext = A[it].first;
+			b->siblingOffsetPrev = A[it-1].first;
+		}
+	}
+	case SPLIT_SAH: default: {
+		// Allocate _BucketInfo_ for SAH partition buckets
+		const int nBuckets = 12;
+		struct BucketInfo {
+			BucketInfo() { count = 0; }
+			int count;
+			BBox bounds;
+		};
+		BucketInfo buckets[nBuckets];
+
+		uint32_t offset = node->childOffsetHead;
+		vector<std::pair<uint32_t, Point>> A;
+		while (offset != -1) {
+			LinearBVHContractNode *currChild = &mem[offset];
+			Point centroid = .5f * currChild->bounds.pMin + .5f * currChild->bounds.pMax;
+			int b = nBuckets * 
+				((centroid[dim] - centroidBounds.pMin[dim]) /
+				(centroidBounds.pMax[dim] - centroidBounds.pMin[dim]));
+			if (b == nBuckets) b = nBuckets-1;
+			Assert(b >= 0 && b < nBuckets);
+			buckets[b].count++;
+			buckets[b].bounds = Union(buckets[b].bounds, currChild->bounds);
+			A.push_back(std::make_pair(offset, centroid));
+			offset = currChild->siblingOffsetNext;
+		}
+
+		// Compute costs for splitting after each bucket
+		float cost[nBuckets-1];
+		for (int i = 0; i < nBuckets-1; ++i) {
+			BBox b0, b1;
+			int count0 = 0, count1 = 0;
+			for (int j = 0; j <= i; ++j) {
+				b0 = Union(b0, buckets[j].bounds);
+				count0 += buckets[j].count;
+			}
+			for (int j = i+1; j < nBuckets; ++j) {
+				b1 = Union(b1, buckets[j].bounds);
+				count1 += buckets[j].count;
+			}
+			cost[i] = .125f + (count0*b0.SurfaceArea() + count1*b1.SurfaceArea()) /
+								node->bounds.SurfaceArea();
+		}
+
+		// Find bucket to split at that minimizes SAH metric
+		float minCost = cost[0];
+		uint32_t minCostSplit = 0;
+		for (int i = 1; i < nBuckets-1; ++i) {
+			if (cost[i] < minCost) {
+				minCost = cost[i];
+				minCostSplit = i;
+			}
+		}
+
+		std::sort(A.begin(), A.end(), CompareContractToBucket(minCostSplit, nBuckets, dim, centroidBounds));
+		node->childOffsetHead = A.front().first;
+		node->childOffsetTail = A.back().first;
+		mem[A.front().first].siblingOffsetPrev = -1;
+		mem[A.back().first].siblingOffsetNext = -1;
+		for (uint32_t it = 1; it < A.size(); it++) {
+			LinearBVHContractNode *a = &mem[A[it-1].first];
+			LinearBVHContractNode *b = &mem[A[it].first];
+			a->siblingOffsetNext = A[it].first;
+			b->siblingOffsetPrev = A[it-1].first;
+		}
+	}
+	}
+}
+bool BVHContractAccel::contractionCriterionSA(LinearBVHContractNode *node, LinearBVHContractNode *pnode) {
 	if (pnode == NULL || node == NULL || node->numChild == 0)
 		return false;
-	if (node->visitCount < BVH_CONTRACT_SA_THRESHOLD) {
-		float alpha = node->bounds.SurfaceArea() / pnode->bounds.SurfaceArea();
-		return alpha > 1.f - 1.f / node->numChild;
-	} else {
-		// fprintf(stderr, "Sat. node->visitCount > %d\n", BVH_CONTRACT_SA_THRESHOLD);
-		float alpha = 1.f * node->visitCount / pnode->visitCount;
-		return alpha > 1.f - 1.f / node->numChild;
-	}
-	return false;
+	if (pnode->numChild + node->numChild > 16)
+		return false;
+	float alpha = node->bounds.SurfaceArea() / pnode->bounds.SurfaceArea();
+	return alpha > 1.f - 1.f / node->numChild;
+}
+#define BVH_CONTRACT_RD_THRESHOLD 512
+bool BVHContractAccel::contractionCriterionRD(LinearBVHContractNode *node, LinearBVHContractNode *pnode) {
+	if (pnode == NULL || node == NULL || node->numChild == 0)
+		return false;
+	if (pnode->numChild + node->numChild > 16 || node->visitCount < BVH_CONTRACT_RD_THRESHOLD)
+		return false;
+	float alpha = 1.f * node->visitCount / pnode->visitCount;
+	return alpha > 1.f - 1.f / node->numChild;
 }
 uint32_t BVHContractAccel::flattenLinearBVHTree(uint32_t uoffset, LinearBVHContractNode mem[], uint32_t *offset, uint32_t parentOffset) {
 	LinearBVHContractNode *node = &nodes[uoffset];
@@ -646,14 +784,60 @@ uint32_t BVHContractAccel::flattenLinearBVHTree(uint32_t uoffset, LinearBVHContr
 	linearNode->childOffsetTail = prevChildOffset;
 	return myOffset;
 }
-void BVHContractAccel::recursiveContract(uint32_t uoffset) {
+void BVHContractAccel::recursiveContractSA(uint32_t uoffset) {
 	LinearBVHContractNode *node = &nodes[uoffset];
 	if (node->nPrimitives > 0)	// is leaf
 		return ;
 	uint32_t offset = node->childOffsetHead;
 	while (offset != -1) {
 		LinearBVHContractNode *currChild = &nodes[offset];
-		if (contractionCriterion(currChild, node)) {
+		if (contractionCriterionSA(currChild, node)) {
+			realNodes--;
+			if (currChild->siblingOffsetNext != -1) {
+				LinearBVHContractNode *ctail = &nodes[currChild->childOffsetTail];
+				ctail->siblingOffsetNext = currChild->siblingOffsetNext;
+				LinearBVHContractNode *cnext = &nodes[currChild->siblingOffsetNext];
+				cnext->siblingOffsetPrev = currChild->childOffsetTail;
+			} else {
+				node->childOffsetTail = currChild->childOffsetTail;
+			}
+
+			if (currChild->siblingOffsetPrev != -1) {
+				LinearBVHContractNode *chead = &nodes[currChild->childOffsetHead];
+				chead->siblingOffsetPrev = currChild->siblingOffsetPrev;
+				LinearBVHContractNode *cprev = &nodes[currChild->siblingOffsetPrev];
+			 	cprev->siblingOffsetNext = currChild->childOffsetHead;
+			} else {
+				node->childOffsetHead = currChild->childOffsetHead;
+			}
+			node->numChild = node->numChild + currChild->numChild - 1;
+			offset = currChild->childOffsetHead;
+		} else {
+			offset = currChild->siblingOffsetNext;
+		}
+	}
+
+	// reorder 
+	reorderChild(uoffset, nodes);
+
+	offset = node->childOffsetHead;
+	while (offset != -1) {
+		LinearBVHContractNode *currChild = &nodes[offset];
+		currChild->parentOffset = uoffset;
+		recursiveContractSA(offset);
+		offset = currChild->siblingOffsetNext;
+	}
+}
+void BVHContractAccel::recursiveContractRD(uint32_t uoffset) {
+	LinearBVHContractNode *node = &nodes[uoffset];
+	if (node->nPrimitives > 0)	// is leaf
+		return ;
+	if (node->visitCount < BVH_CONTRACT_RD_THRESHOLD)
+		return ;
+	uint32_t offset = node->childOffsetHead;
+	while (offset != -1) {
+		LinearBVHContractNode *currChild = &nodes[offset];
+		if (contractionCriterionRD(currChild, node)) {
 			realNodes--;
 			if (currChild->siblingOffsetNext != -1) {
 				LinearBVHContractNode *ctail = &nodes[currChild->childOffsetTail];
@@ -683,7 +867,7 @@ void BVHContractAccel::recursiveContract(uint32_t uoffset) {
 	while (offset != -1) {
 		LinearBVHContractNode *currChild = &nodes[offset];
 		currChild->parentOffset = uoffset;
-		recursiveContract(offset);
+		recursiveContractSA(offset);
 		offset = currChild->siblingOffsetNext;
 	}
 }

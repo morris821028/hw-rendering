@@ -62,9 +62,13 @@ private:
         vector<BVHPrimitiveInfo> &buildData, uint32_t start, uint32_t end,
         uint32_t *totalNodes, vector<Reference<Primitive> > &orderedPrims);
     uint32_t flattenBVHTree(BVHBuildNode *node, uint32_t *offset, uint32_t parentOffset);
-	void recursiveContract(uint32_t uoffset);
-	bool contractionCriterion(LinearBVHContractNode *node, LinearBVHContractNode *pnode);
+	// MORRIS ADD
+	void recursiveContractSA(uint32_t uoffset);
+	void recursiveContractRD(uint32_t uoffset);
+	bool contractionCriterionSA(LinearBVHContractNode *node, LinearBVHContractNode *pnode);
+	bool contractionCriterionRD(LinearBVHContractNode *node, LinearBVHContractNode *pnode);
 	uint32_t flattenLinearBVHTree(uint32_t uoffset, LinearBVHContractNode mem[], uint32_t *offset, uint32_t parentOffset);
+	void reorderChild(uint32_t uoffset, LinearBVHContractNode mem[]);
     // BVHAccel Private Data
     uint32_t maxPrimsInNode;
 	uint32_t realNodes, intersectTest;
