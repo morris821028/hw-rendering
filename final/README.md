@@ -152,6 +152,14 @@ void iteratorTraverse(uint32_t offset, LinearTreeNode *_mem) {
 }
 ```
 
+### 實驗結果 ###
+
+| sences \ BVH policy |   Native | Contract(loop) | Contract(recursive) | Node Reduce     |
+|---------------------|----------|----------------|---------------------|-----------------|
+| sibenik.pbrt        |    7.000s|         10.502s|               9.411s|  99576 / 131457 |
+| yeahright.pbrt      |   12.297s|         14.638s|              14.210s| 288707 / 376317 |
+| sponza-fog.pbrt     |16m36.037s|      21m09.960s|           20m12.012s|  91412 / 121155 |
+
 ### Test sences ###
 
 * [pbrt.org scenes](http://www.pbrt.org/scenes.php)
