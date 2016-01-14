@@ -63,6 +63,10 @@ private:
         uint32_t *totalNodes, vector<Reference<Primitive> > &orderedPrims);
     uint32_t flattenBVHTree(BVHBuildNode *node, uint32_t *offset, uint32_t parentOffset);
 	// MORRIS ADD
+	bool BVHContractAccel::recIntersect(uint32_t offset, const Ray &ray, Intersection *isect, 
+									const Vector &invDir, const uint32_t dirIsNeg[]) const;
+	bool BVHContractAccel::recIntersectP(uint32_t offset, const Ray &ray, 
+									const Vector &invDir, const uint32_t dirIsNeg[]) const;
 	void recursiveContractSA(uint32_t uoffset);
 	void recursiveContractRD(uint32_t uoffset);
 	bool contractionCriterionSA(LinearBVHContractNode *node, LinearBVHContractNode *pnode);
