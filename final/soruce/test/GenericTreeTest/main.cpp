@@ -2,7 +2,7 @@
 using namespace std;
 
 struct TreeData {
-	uint32_t v[64];
+	uint32_t v[4];
 };
 struct TreeNode {
 	// node link information
@@ -74,7 +74,7 @@ uint32_t flattenTree(TreeNode *node, uint32_t *offset, uint32_t parentOffset, Li
 	return myOffset;
 }
 uint32_t hash1 = 0, hash2 = 0, order = 0;
-void recursiveTraverse(LinearTreeNode *node, LinearTreeNode *_mem) {
+void recursiveTraversal(LinearTreeNode *node, LinearTreeNode *_mem) {
 	hash1 += *(uint32_t *) node * (order++);
 #ifdef DEBUG
 	printf("%p\n", node);
@@ -87,10 +87,10 @@ void recursiveTraverse(LinearTreeNode *node, LinearTreeNode *_mem) {
 #ifdef DEBUG
 //		printf("%p %p\n", node, u);
 #endif
-		recursiveTraverse(u, _mem);
+		recursiveTraversal(u, _mem);
 	}
 }
-void iteratorTraverse(uint32_t offset, LinearTreeNode *_mem) {
+void iteratorTraversal(uint32_t offset, LinearTreeNode *_mem) {
 	bool process = true;
 	while (offset != -1) {
 		LinearTreeNode *node = &_mem[offset];
@@ -121,15 +121,16 @@ int main() {
 	uint32_t offset = 0;
 	flattenTree(root, &offset, -1, _mem);
 	hash1 = hash2 = 0;
+	printf("sizeof(LinearTreeNode) = %d\n", sizeof(LinearTreeNode));
 #define MAXLOOP 10000
 #ifdef RECTEST
 	for (int i = 0; i < MAXLOOP; i++)
-		recursiveTraverse(&_mem[0], _mem);
+		recursiveTraversal(&_mem[0], _mem);
 	printf("%lu\n", hash1);
 #endif
 #ifdef ITETEST
 	for (int i = 0; i < MAXLOOP; i++)
-		iteratorTraverse(0, _mem);
+		iteratorTraversal(0, _mem);
 	printf("%lu\n", hash2);
 #endif
 	return 0;
