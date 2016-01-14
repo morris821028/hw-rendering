@@ -122,13 +122,16 @@ int main() {
 	flattenTree(root, &offset, -1, _mem);
 	hash1 = hash2 = 0;
 #define MAXLOOP 10000
-//	for (int i = 0; i < MAXLOOP; i++)
-//		recursiveTraverse(&_mem[0], _mem);
-	puts("--");
+#ifdef RECTEST
+	for (int i = 0; i < MAXLOOP; i++)
+		recursiveTraverse(&_mem[0], _mem);
+	printf("%lu\n", hash1);
+#endif
+#ifdef ITETEST
 	for (int i = 0; i < MAXLOOP; i++)
 		iteratorTraverse(0, _mem);
-	printf("%lu\n", hash1);
 	printf("%lu\n", hash2);
+#endif
 	return 0;
 }
 /*
