@@ -1,0 +1,368 @@
+<html>
+<head>
+<title>
+CSIE5098 - Final
+</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+    <link rel="stylesheet" type="text/css" href="simple.css">
+
+    <link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/morris.js/0.5.1/morris.css">
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.0/jquery.min.js"></script>
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/raphael/2.1.0/raphael-min.js"></script>
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/morris.js/0.5.1/morris.min.js"></script>
+</head>
+
+
+
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF" LINK="#0000EE" VLINK="#551A8B" ALINK="#FF0000">
+
+<h2 id="toc_0">Final Project</h2>
+
+<h3 id="toc_1">Description of implementation approach and comments</h3>
+
+<ul>
+<li>Windows 7 64-bits</li>
+<li>Comipler &amp; IDE: Microsoft Visual Studio 2012</li>
+<li>Image View Software: IrfanView</li>
+<li>Intel(R) Core(TM) i5-3470 CPU @ 3.20GHz 3.20GHz</li>
+<li>Intel(R) HD Graphics </li>
+<li>RAM 4.00 GB</li>
+</ul>
+
+<p>從一般 BVH 架構中，一般都是用 full binary tree，子節點要不 0 個要不 2 個。若有 \(N\) 個 primitive 物件，則表示有 \(N\) 個葉節點放置這些 primitive 物件，而有 \(N-1\) 個內部節點紀錄 Bounding Box 的部分。在測試交點和遍歷走訪的使用上，最慘有一半是多餘計算和走訪，而另一半屬於加速結構。</p>
+
+<p>在論文 <a href="">Ray Specialized Contraction on Bounding Volume Hierarchies</a> 中，企圖想要利用 generic tree 取代一般使用 full binary tree 實作，在不更動 BVH 的效能下，減少運行上較沒用的內部節點，用以提升遍歷走訪效能，以及提升內存快取的效率。</p>
+
+<p>降低內部節點步驟如下所示：</p>
+
+<ol>
+<li>利用原生方法建立 full binary tree 的 BVH (利用各種分割策略完成)</li>
+<li>進行坍倒 (flatten)，將二元樹不連續的記憶體分布調整成線性分布，加速遍歷走訪的內存快取效率。</li>
+<li>靜態調整成 generic tree 版本，藉由啟發式收縮 (Contract)，利用節點與其子節點的 Bounding Box 表面積比例，評估浪費的走訪節點。</li>
+<li>動態調整部分，採用隨機取樣，根據取樣 ray，取樣走訪次數，將比較容易打到的節點盡可能收縮到接近根節點。</li>
+</ol>
+
+<h3 id="toc_2">實作部分</h3>
+
+<p>從實作中，在步驟 2. 約略可以減少 \(25\%\) 的節點，在記憶體方面的影響量沒有太大影響，節點紀錄資訊也增加 (<code>sizeof(struct Node)</code> 相對地大上許多)。</p>
+
+<p>在步驟 3. 中，根據 pbrt-v2 的架構，加速結構能取得的場景資訊並不容易竄改，大部分的類別函數都是 <code>const function()</code>，意即無法變動 object member 的值，但針對指向位址的值可以改變。這類寫法，猜想所有加速結構都是靜態決定，在多核心運行時較不會存在同步 overhead 的影響。</p>
+
+<p>在此，換成另外一種修改方案，在 <code>pbrt-v2/core/scene.h</code> 的 <code>bool Scene::Intersect(...)</code> 函數中加入 <code>aggregate-&gt;tick();</code>。利用 <code>aggregate-&gt;tick();</code> 這個函數，大部分呼叫都沒有更動樹狀結構。當呼叫次數 \(T\) 達到一定次數時，加速結構會進行大規模的結構調整。</p>
+
+<p>根據 pbrt rendering 的步驟，儘管不斷地測試或者是估計 \(T\) 要設定的值，都無法接近全局的取樣評估，其中最大的原因是取樣順序和局部取樣調整，從理論上得知不可能會有比較好的結果。這樣的寫法提供簡便的方案去統計 pbrt 運算時較有可能的 ray 從哪裡射出，不用挖掘所有的不同類型 ray 進行取樣。</p>
+
+<p>最後，修改檔案如下：</p>
+
+<h4 id="toc_3">修改檔案清單</h4>
+
+<pre class="line-numbers"><code class="language-none">.
+├── accelerators
+│   ├── bvhcontract.cpp
+│   └── bvhcontract.h
+└── core
+    ├── api.cpp
+    ├── primitive.cpp
+    ├── primitive.h
+    └── scene.h</code></pre>
+
+<h4 id="toc_4"><code>core/api.cpp</code></h4>
+
+<pre class="line-numbers"><code class="language-cpp">Primitive *MakeAccelerator(const string &amp;name,
+                           const vector&lt;Reference&lt;Primitive&gt; &gt; &amp;prims,
+                           const ParamSet &amp;paramSet) {
+    ...
+    else if (name == &quot;bvhcontract&quot;)
+        accel = CreateBVHContractAccelerator(prims, paramSet);
+    ...
+}</code></pre>
+
+<h4 id="toc_5"><code>core/primitive.h</code></h4>
+
+<pre class="line-numbers"><code class="language-cpp">class Primitive : public ReferenceCounted {
+public:
+    ...
+    // MORRIS ADD
+    virtual void tick();
+    ...
+protected:
+    ...
+};</code></pre>
+
+<h4 id="toc_6"><code>core/scene.h</code></h4>
+
+<pre class="line-numbers"><code class="language-cpp">class Scene {
+public:
+    // Scene Public Methods
+    bool Intersect(const Ray &amp;ray, Intersection *isect) const {
+        ...
+        aggregate-&gt;tick();
+        ...
+    }
+};</code></pre>
+
+<h3 id="toc_7">Generic Tree 設計與走訪測試</h3>
+
+<p>在 Full binary tree style - BVH 實作中，利用前序走訪分配節點編號範圍 \([0, 2N-1]\)，因此節點編號 \(u\) 的左子樹的編號為 \(u+1\)，只需要紀錄右子樹編號 <code>secondChildOffset</code>，這種寫法在空間和走訪時的快取都有效能改善。在標準程序中也單用迭代方式即可完成，不採用遞迴走訪，減少 push stack 的指令。</p>
+
+<p>在 Generic tree 版本中，基礎節點紀錄架構如下：</p>
+
+<pre class="line-numbers"><code class="language-cpp">struct LinearTreeNode {
+    // node link information
+    uint32_t parentOffset;
+    uint32_t childOffsetHead, childOffsetTail;
+    uint32_t siblingOffsetNext, siblingOffsetPrev;
+    // faster record
+    uint32_t numChild;
+    // node data
+    TreeData e;
+    uint32_t visitCount;
+};</code></pre>
+
+<p>在原生 BVH 求交點寫法中，根據節點的 Split-Axis 以及 Ray 的方向決定先左子樹還是先右子樹走訪，藉以獲得較高的剪枝機率。但全部先左子樹走訪的快取優勢比較高 (因為前序分配節點編號)，反之在 Split-Axis 有一半的機率走會走快取優勢不高的情況，在權衡兩者之間。</p>
+
+<p>然而在 Generic Tree 實作上，若要提供 Split-Axis 則需要提供 <code>childOffsetTail</code> 和 <code>siblingOffsetPrev</code> 兩個指針，則多了兩個紀錄欄位，單一節點大小從 <code>sizeof(LinearBVHNode) = 32</code>拓展到 <code>sizeof(LinearBVHContractNode) = 60</code>，記憶體用量整整接近兩倍。從 Contract 算法中，節點個數保證無法減少一半，推論得到在 Contract 後記憶體用量會多一些。</p>
+
+<p>走訪實作上分成遞迴和迭代兩種版本，遞迴在效能上會卡在 push esp, argument 等資訊上，而在迭代版本省了 call function overhead 和空間使用，但增加計算次數。而在我撰寫的版本中，還必須 access 父節點的資訊決定要往 <code>siblingOffsetNext</code> 還是 <code>siblingOffsetprev</code>，因此快取效能從理論上嚴重下滑。</p>
+
+<p>遞迴和迭代走訪寫法如下：</p>
+
+<h4 id="toc_8">遞迴版本走訪</h4>
+
+<pre class="line-numbers"><code class="language-cpp">void recursiveTraverse(LinearTreeNode *node, LinearTreeNode *_mem) {
+    // proess
+    uint32_t offset = node-&gt;childOffsetHead;
+    if (offset == -1)
+        return ;
+    for (LinearTreeNode *u; offset != -1; offset = u-&gt;siblingOffsetNext) {
+        u = &amp;_mem[offset];
+        recursiveTraverse(u, _mem);
+    }
+}</code></pre>
+
+<h4 id="toc_9">迭代版本走訪</h4>
+
+<pre class="line-numbers"><code class="language-cpp">void iteratorTraverse(uint32_t offset, LinearTreeNode *_mem) {
+    bool process = true;
+    while (offset != -1) {
+        LinearTreeNode *node = &amp;_mem[offset];
+        if (process) {
+            // process
+        }
+        if (node-&gt;childOffsetHead != -1 &amp;&amp; process) {
+            offset = node-&gt;childOffsetHead;
+            process = true;
+        } else if (node-&gt;siblingOffsetNext != -1) {
+            offset = node-&gt;siblingOffsetNext;
+            process = true;
+        } else {
+            offset = node-&gt;parentOffset;
+            process = false;
+        }
+    }
+}</code></pre>
+
+<h4 id="toc_10">節點大小對走訪效能影響</h4>
+
+<div style="padding: 10px;">
+  <div id="run-result-traversal" style="height: 480px;">
+  </div>
+</div>
+
+<script>
+new Morris.Line({
+  element: 'run-result-traversal',
+  data: [
+    { y: '32', a: 6.049, b: 5.628},
+    { y: '44', a: 6.651,  b: 6.817},
+    { y: '60', a: 7.460,  b: 6.888},
+    { y: '92', a: 9.361,  b: 9.271},
+    { y: '156', a: 16.844,  b: 16.694},
+    { y: '220', a: 25.294,  b: 27.031},
+    { y: '284', a: 28.181,  b: 30.900},
+    { y: '540', a: 28.560,  b: 33.707},
+  ],
+  parseTime: false,
+  xkey: 'y',
+  ykeys: ['a', 'b'],
+  ymin: 0.0,
+  ymax: 50.0,
+  labels: ['Recursive', 'Loop']
+});
+</script>
+
+<table>
+<thead>
+<tr>
+<th>sizeof(LinearTreeNode) bytes \ Traversal</th>
+<th>Recursive</th>
+<th>Loop</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>32</td>
+<td>6.049s</td>
+<td>5.628s</td>
+</tr>
+<tr>
+<td>44</td>
+<td>6.651s</td>
+<td>6.817s</td>
+</tr>
+<tr>
+<td>60</td>
+<td>7.460s</td>
+<td>6.888s</td>
+</tr>
+<tr>
+<td>92</td>
+<td>9.361s</td>
+<td>9.271s</td>
+</tr>
+<tr>
+<td>156</td>
+<td>16.844s</td>
+<td>16.694s</td>
+</tr>
+<tr>
+<td>220</td>
+<td>25.294s</td>
+<td>27.031s</td>
+</tr>
+<tr>
+<td>284</td>
+<td>28.181s</td>
+<td>30.900s</td>
+</tr>
+<tr>
+<td>540</td>
+<td>28.560s</td>
+<td>33.707s</td>
+</tr>
+</tbody>
+</table>
+
+<h3 id="toc_10">實驗結果</h3>
+
+<div style="padding: 10px;">
+  <div id="run-result-contract" style="height: 480px;">
+  </div>
+</div>
+
+<div style="padding: 10px;">
+  <div id="run-result-contract-reduce" style="height: 480px;">
+  </div>
+</div>
+
+<script>
+new Morris.Bar({
+  element: 'run-result-contract',
+  data: [
+    { y: 'sibenik.pbrt', a: 7.000, b: 10.502, c: 9.411, d: (99576 * 100 / 131457)},
+    { y: 'yeahright.pbrt', a: 12.297, b: 14.638, c: 14.210, d: (288707 * 100 / 376317)},
+    { y: 'sponza-fog.pbrt', a: 996.037, b: 1269.960, c: 1212.012, d: (91412 * 100 / 121155)},
+  ],
+  parseTime: false,
+  xkey: 'y',
+  ymin: 0.0,
+  ymax: 1300.0,
+  ykeys: ['a', 'b', 'c'],
+  labels: ['Native', 'Contract (Recursive)', 'Contract (Loop)', 'Reduce %']
+});
+new Morris.Bar({
+  element: 'run-result-contract-reduce',
+  data: [
+    { y: 'sibenik.pbrt', a: 7.000, b: 10.502, c: 9.411, d: (99576 * 100 / 131457)},
+    { y: 'yeahright.pbrt', a: 12.297, b: 14.638, c: 14.210, d: (288707 * 100 / 376317)},
+    { y: 'sponza-fog.pbrt', a: 996.037, b: 1269.960, c: 1212.012, d: (91412 * 100 / 121155)},
+  ],
+  parseTime: false,
+  xkey: 'y',
+  ymin: 0.0,
+  ymax: 100.0,
+  ykeys: ['d'],
+  labels: ['Reduce %']
+});
+/*
+| sences \ BVH policy |   Native | Contract(loop) | Contract(recursive) | Node Reduce     |
+|---------------------|----------|----------------|---------------------|-----------------|
+| sibenik.pbrt        |    7.000s|         10.502s|               9.411s|  99576 / 131457 |
+| yeahright.pbrt      |   12.297s|         14.638s|              14.210s| 288707 / 376317 |
+| sponza-fog.pbrt     |16m36.037s|      21m09.960s|           20m12.012s|  91412 / 121155 |
+*/
+</script>
+
+<table>
+<thead>
+<tr>
+<th>sences \ BVH policy</th>
+<th>Native</th>
+<th>Contract(loop)</th>
+<th>Contract(recursive)</th>
+<th>Node Reduce</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>
+  <img border="0" src="images/sibenik.pbrt.jpg" style='max-height: 125px; max-width: 125px;'>
+  <p><font color="#008000"><tt>sibenik.pbrt</tt></font><p>
+</td>
+<td>7.000s</td>
+<td>10.502s</td>
+<td>9.411s</td>
+<td>99576 / 131457</td>
+</tr>
+<tr>
+<td>
+  <img border="0" src="images/yeahright.pbrt.jpg" style='max-height: 125px; max-width: 125px;'>
+  <p><font color="#008000"><tt>yeahright.pbrt</tt></font><p>
+</td>
+<td>12.297s</td>
+<td>14.638s</td>
+<td>14.210s</td>
+<td>288707 / 376317</td>
+</tr>
+<tr>
+<td>
+  <img border="0" src="images/sponza-fog.pbrt.jpg" style='max-height: 125px; max-width: 125px;'>
+  <p><font color="#008000"><tt>sponza-fog.pbrt</tt></font><p>
+</td>
+<td>16m36.037s</td>
+<td>21m09.960s</td>
+<td>20m12.012s</td>
+<td>91412 / 121155</td>
+</tr>
+</tbody>
+</table>
+
+<h3 id="toc_11">Test sences</h3>
+
+<ul>
+<li><a href="http://www.pbrt.org/scenes.php">pbrt.org scenes</a></li>
+</ul>
+
+<h3 id="toc_12">Reference paper</h3>
+
+<p><a href="http://www.cs.cmu.edu/%7Eygu1/paper/PG15/conference.pdf">Ray Specialized Contraction on Bounding Volume Hierarchies, Yan Gu Yong He Guy E. Blelloch</a></p>
+
+<script type="text/javascript">
+!function(){"undefined"!=typeof self&&self.Prism&&self.document&&Prism.hooks.add("complete",function(e){if(e.code){var t=e.element.parentNode,s=/\s*\bline-numbers\b\s*/;if(t&&/pre/i.test(t.nodeName)&&(s.test(t.className)||s.test(e.element.className))&&!e.element.querySelector(".line-numbers-rows")){s.test(e.element.className)&&(e.element.className=e.element.className.replace(s,"")),s.test(t.className)||(t.className+=" line-numbers");var n,a=e.code.match(/\n(?!$)/g),l=a?a.length+1:1,m=new Array(l+1);m=m.join("<span></span>"),n=document.createElement("span"),n.className="line-numbers-rows",n.innerHTML=m,t.hasAttribute("data-start")&&(t.style.counterReset="linenumber "+(parseInt(t.getAttribute("data-start"),10)-1)),e.element.appendChild(n)}}})}();
+</script>
+<script type="text/x-mathjax-config">
+if (typeof MathJaxListener !== 'undefined') {
+  MathJax.Hub.Register.StartupHook('End', function () {
+    MathJaxListener.invokeCallbackForKey_('End');
+  });
+}
+</script>
+<script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+</body>
+
+
+</html>
