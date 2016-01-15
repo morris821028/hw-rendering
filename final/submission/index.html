@@ -43,6 +43,23 @@ CSIE5098 - Final
 <li>動態調整部分，採用隨機取樣，根據取樣 ray，取樣走訪次數，將比較容易打到的節點盡可能收縮到接近根節點。</li>
 </ol>
 
+<p>若要收縮節點 \(N\)，假設 Bounding box 計算交點花費為 \(C_B\)，穿過節點 \(N\) 的 Bounding box 射線機率 \(\alpha_N\)，得到收縮前後的計算差值 \(\delta(N)\)，如下所示。</p>
+
+<p>\[
+\begin{align}
+\delta(N) &amp;= n_{N.\text{child}} \; C_B - (\alpha_N (1+n_{N.\text{child}}) +(1 - \alpha_N)) \; C_B \\
+&amp; = ((1 - \alpha_N) \; n_{N.\text{child}} - 1) \; C_B
+\end{align}
+\]</p>
+
+<p>目標讓 \(\delta(N) &lt; 0\)，得到</p>
+
+<p>\[
+\alpha(N) &gt; 1 - \frac{1}{n_{N.\text{child}}}
+\]</p>
+
+<p>計算 \(\delta(N)\) 顯得要有效率，但又沒辦法全局考量，需要提供一個猜測算法，藉由部分取樣以及步驟 2. 的表面積總和比例進行收縮。</p>
+
 <h3 id="toc_2">實作部分</h3>
 
 <p>從實作中，在步驟 2. 約略可以減少 \(25\%\) 的節點，在記憶體方面的影響量沒有太大影響，節點紀錄資訊也增加 (<code>sizeof(struct Node)</code> 相對地大上許多)。</p>
@@ -165,6 +182,8 @@ public:
 
 <h4 id="toc_10">節點大小對走訪效能影響</h4>
 
+<p>從實驗數據看來，遞迴版本比迭代版本在越大節點情況效能普遍性地好，預估是在遞迴版本造成的快取效能好上許多。</p>
+
 <div style="padding: 10px;">
   <div id="run-result-traversal" style="height: 480px;">
   </div>
@@ -246,6 +265,10 @@ new Morris.Line({
 </table>
 
 <h3 id="toc_10">實驗結果</h3>
+
+<p>由於 <code>tick()</code> 效果並不好，調整參數後與原生的作法差距仍然存在，單靠表面積提供的啟發式收縮，效率比加上動態結果還好。但從實驗結果中得知，實作方面存在一些尚未排除的效能障礙，在多核心部分效能差距就非常明顯，預計是在求交點時同步資料造成的 overhead 時間。</p>
+
+<p>而在減少的節點數量，光是啟發是的表面收縮就減少 \(25\%\) 節點量，而在動態收縮處理，儘管已經探訪 \(10^7\) 收縮點數量近乎微乎其微 (不到一兩百個節點)。</p>
 
 <div style="padding: 10px;">
   <div id="run-result-contract" style="height: 480px;">

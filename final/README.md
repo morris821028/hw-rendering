@@ -21,6 +21,23 @@
 3. 靜態調整成 generic tree 版本，藉由啟發式收縮 (Contract)，利用節點與其子節點的 Bounding Box 表面積比例，評估浪費的走訪節點。
 4. 動態調整部分，採用隨機取樣，根據取樣 ray，取樣走訪次數，將比較容易打到的節點盡可能收縮到接近根節點。
 
+若要收縮節點 $N$，假設 Bounding box 計算交點花費為 $C_B$，穿過節點 $N$ 的 Bounding box 射線機率 $\alpha_N$，得到收縮前後的計算差值 $\delta(N)$，如下所示。
+
+$$
+\begin{align}
+\delta(N) &= n_{N.\text{child}} \; C_B - (\alpha_N (1+n_{N.\text{child}}) +(1 - \alpha_N)) \; C_B \\
+& = ((1 - \alpha_N) \; n_{N.\text{child}} - 1) \; C_B
+\end{align}
+$$
+
+目標讓 $\delta(N) < 0$，得到
+
+$$
+\alpha(N) > 1 - \frac{1}{n_{N.\text{child}}}
+$$
+
+計算 $\delta(N)$ 顯得要有效率，但又沒辦法全局考量，需要提供一個猜測算法，藉由部分取樣以及步驟 2. 的表面積總和比例進行收縮。
+
 ### 實作部分 ###
 
 從實作中，在步驟 2. 約略可以減少 $25\%$ 的節點，在記憶體方面的影響量沒有太大影響，節點紀錄資訊也增加 (`sizeof(struct Node)` 相對地大上許多)。
@@ -154,6 +171,8 @@ void iteratorTraverse(uint32_t offset, LinearTreeNode *_mem) {
 
 #### 節點大小對走訪效能影響 ####
 
+從實驗數據看來，遞迴版本比迭代版本在越大節點情況效能普遍性地好，預估是在遞迴版本造成的快取效能好上許多。
+
 | sizeof(LinearTreeNode) bytes \ Traversal | Recursive | Loop |
 |--------|--------|--------|
 |  32    |  6.049s|  5.628s|
@@ -166,6 +185,10 @@ void iteratorTraverse(uint32_t offset, LinearTreeNode *_mem) {
 | 540    | 28.560s| 33.707s|
 
 ### 實驗結果 ###
+
+由於 `tick()` 效果並不好，調整參數後與原生的作法差距仍然存在，單靠表面積提供的啟發式收縮，效率比加上動態結果還好。但從實驗結果中得知，實作方面存在一些尚未排除的效能障礙，在多核心部分效能差距就非常明顯，預計是在求交點時同步資料造成的 overhead 時間。
+
+而在減少的節點數量，光是啟發是的表面收縮就減少 $25\%$ 節點量，而在動態收縮處理，儘管已經探訪 $10^7$ 收縮點數量近乎微乎其微 (不到一兩百個節點)。
 
 | sences \ BVH policy |   Native | Contract(loop) | Contract(recursive) | Node Reduce     |
 |---------------------|----------|----------------|---------------------|-----------------|
